@@ -1,5 +1,6 @@
 package com.javadiag.gateway.admin;
 
+import com.javadiag.gateway.config.GatewayConfig;
 import com.javadiag.gateway.json.JsonSupport;
 import com.javadiag.gateway.registry.InMemoryRegistry;
 import com.javadiag.gateway.registry.ProbeInstance;
@@ -21,15 +22,19 @@ import java.util.stream.Collectors;
 public final class AdminApiServlet extends HttpServlet {
 
     private static final int SESSION_MAX_INACTIVE_SECONDS = 8 * 60 * 60;
+    static final String MCP_SERVER_NAME = "java-diag-gateway";
 
     private final InMemoryRegistry registry;
     private final JsonSupport json;
     private final AdminCredentials credentials;
+    private final GatewayConfig gatewayConfig;
 
-    public AdminApiServlet(InMemoryRegistry registry, JsonSupport json, AdminCredentials credentials) {
+    public AdminApiServlet(
+            InMemoryRegistry registry, JsonSupport json, AdminCredentials credentials, GatewayConfig gatewayConfig) {
         this.registry = registry;
         this.json = json;
         this.credentials = credentials;
+        this.gatewayConfig = gatewayConfig;
     }
 
     @Override
@@ -92,11 +97,25 @@ public final class AdminApiServlet extends HttpServlet {
 
     private void handleSession(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         boolean authenticated = isAuthenticated(req);
-        if (authenticated) {
-            writeJson(resp, 200, Map.of("ok", true, "authenticated", true));
-        } else {
+        if (!authenticated) {
             writeJson(resp, 200, Map.of("ok", true, "authenticated", false));
+            return;
         }
+        Map<String, Object> mcp = new java.util.LinkedHashMap<>();
+        mcp.put("serverName", MCP_SERVER_NAME);
+        if (gatewayConfig.authToken().isPresent()) {
+            mcp.put("agentAuthConfigured", true);
+            mcp.put("agentAuthToken", gatewayConfig.authToken().get());
+        } else {
+            mcp.put("agentAuthConfigured", false);
+        }
+        writeJson(
+                resp,
+                200,
+                Map.of(
+                        "ok", true,
+                        "authenticated", true,
+                        "mcp", mcp));
     }
 
     private void handleInstances(HttpServletRequest req, HttpServletResponse resp) throws IOException {
@@ -105,7 +124,7 @@ public final class AdminApiServlet extends HttpServlet {
         writeJson(resp, 200, Map.of(
                 "ok", true,
                 "count", list.size(),
-                "instances", list.stream().map(ProbeInstance::toPublicMap).collect(Collectors.toList())));
+                "instances", list.stream().map(ProbeInstance::toAdminMap).collect(Collectors.toList())));
     }
 
     static boolean isAuthenticated(HttpServletRequest req) {

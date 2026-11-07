@@ -1,5 +1,6 @@
 package com.javadiag.gateway.admin;
 
+import com.javadiag.gateway.config.GatewayConfig;
 import com.javadiag.gateway.json.JsonSupport;
 import com.javadiag.gateway.registry.InMemoryRegistry;
 import com.javadiag.gateway.registry.ProbeInstance;
@@ -23,6 +24,7 @@ import java.time.Instant;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AdminApiServletTest {
@@ -31,6 +33,7 @@ class AdminApiServletTest {
     private int port;
     private InMemoryRegistry registry;
     private HttpClient client;
+    private GatewayConfig gatewayConfig;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -51,6 +54,8 @@ class AdminApiServletTest {
 
         JsonSupport json = JsonSupport.createDefault();
         AdminCredentials creds = new AdminCredentials("admin", "java-diag");
+        gatewayConfig =
+                GatewayConfig.from(Map.of(GatewayConfig.ENV_AUTH_TOKEN, "agent-secret"), java.util.List.of());
 
         jetty = new Server();
         ServerConnector connector = new ServerConnector(jetty);
@@ -61,7 +66,8 @@ class AdminApiServletTest {
         ServletContextHandler context = new ServletContextHandler();
         context.setContextPath("/");
         context.setSessionHandler(new SessionHandler());
-        context.addServlet(new ServletHolder(new AdminApiServlet(registry, json, creds)), "/admin/api/*");
+        context.addServlet(
+                new ServletHolder(new AdminApiServlet(registry, json, creds, gatewayConfig)), "/admin/api/*");
         jetty.setHandler(context);
         jetty.start();
         port = connector.getLocalPort();
@@ -96,6 +102,28 @@ class AdminApiServletTest {
         assertEquals(200, instances.statusCode());
         assertTrue(instances.body().contains("10.0.0.1:8765"));
         assertTrue(instances.body().contains("\"count\":1"));
+        assertTrue(instances.body().contains("\"authToken\":\"probe-tok\""));
+        assertFalse(instances.body().contains("\"probeToken\""));
+    }
+
+    @Test
+    void sessionExposesAgentTokenOnlyWhenLoggedIn() throws Exception {
+        HttpResponse<String> anon = get("/admin/api/session");
+        assertEquals(200, anon.statusCode());
+        assertTrue(anon.body().contains("\"authenticated\":false"));
+        assertFalse(anon.body().contains("agent-secret"));
+        assertFalse(anon.body().contains("agentAuthToken"));
+
+        assertEquals(200, postJson("/admin/api/login", """
+                {"username":"admin","password":"java-diag"}
+                """).statusCode());
+
+        HttpResponse<String> authed = get("/admin/api/session");
+        assertEquals(200, authed.statusCode());
+        assertTrue(authed.body().contains("\"authenticated\":true"));
+        assertTrue(authed.body().contains("agent-secret"));
+        assertTrue(authed.body().contains("\"agentAuthConfigured\":true"));
+        assertTrue(authed.body().contains(AdminApiServlet.MCP_SERVER_NAME));
     }
 
     @Test

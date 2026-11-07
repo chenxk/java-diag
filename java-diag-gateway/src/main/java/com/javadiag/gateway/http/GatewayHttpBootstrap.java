@@ -98,7 +98,7 @@ public final class GatewayHttpBootstrap {
 
         AdminCredentials adminCredentials = new AdminCredentials(config.adminUser(), config.adminPassword());
         context.addServlet(
-                new ServletHolder(new AdminApiServlet(registry, json, adminCredentials)),
+                new ServletHolder(new AdminApiServlet(registry, json, adminCredentials, config)),
                 "/admin/api/*");
         context.addServlet(new ServletHolder(new AdminStaticServlet()), "/admin/*");
 

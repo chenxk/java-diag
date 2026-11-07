@@ -1,8 +1,11 @@
 (function () {
   const REFRESH_MS = 8000;
+  const TAB_MCP = "mcp";
+  const TAB_INSTANCES = "instances";
   const api = (path, options) =>
     fetch("/admin/api" + path, { credentials: "same-origin", ...options });
 
+  const loadingPanel = document.getElementById("panel-loading");
   const loginPanel = document.getElementById("panel-login");
   const consolePanel = document.getElementById("panel-console");
   const formLogin = document.getElementById("form-login");
@@ -12,18 +15,127 @@
   const emptyState = document.getElementById("empty-state");
   const refreshMeta = document.getElementById("refresh-meta");
   const footClock = document.getElementById("foot-clock");
+  const mcpSnippet = document.getElementById("mcp-snippet");
+  const mcpTokenHint = document.getElementById("mcp-token-hint");
+  const btnCopyUrl = document.getElementById("btn-copy-url");
+  const btnCopyJson = document.getElementById("btn-copy-json");
+  const copyToast = document.getElementById("copy-toast");
+  const tabMcp = document.getElementById("tab-mcp");
+  const tabInstances = document.getElementById("tab-instances");
+  const panelMcp = document.getElementById("tab-panel-mcp");
+  const panelInstances = document.getElementById("tab-panel-instances");
 
   let timer = null;
+  let sessionMcp = null;
+  let copyToastTimer = null;
 
   function showConsole(show) {
+    loadingPanel.hidden = true;
+    loadingPanel.setAttribute("aria-busy", "false");
     loginPanel.hidden = show;
     consolePanel.hidden = !show;
     btnLogout.hidden = !show;
   }
 
-  async function checkSession() {
+  function mcpUrl() {
+    return location.origin.replace(/\/$/, "") + "/mcp";
+  }
+
+  function buildMcpServersObject(mcpMeta) {
+    const name = (mcpMeta && mcpMeta.serverName) || "java-diag-gateway";
+    const entry = { url: mcpUrl() };
+    if (mcpMeta && mcpMeta.agentAuthConfigured && mcpMeta.agentAuthToken) {
+      entry.headers = { Authorization: "Bearer " + mcpMeta.agentAuthToken };
+    } else {
+      entry.headers = { Authorization: "Bearer <token>" };
+    }
+    return { [name]: entry };
+  }
+
+  function buildMcpJsonDocument(mcpMeta) {
+    return { mcpServers: buildMcpServersObject(mcpMeta) };
+  }
+
+  function formatMcpJson(mcpMeta) {
+    return JSON.stringify(buildMcpJsonDocument(mcpMeta), null, 2);
+  }
+
+  function switchTab(tabId) {
+    const isMcp = tabId === TAB_MCP;
+    tabMcp.setAttribute("aria-selected", isMcp ? "true" : "false");
+    tabMcp.tabIndex = isMcp ? 0 : -1;
+    tabInstances.setAttribute("aria-selected", isMcp ? "false" : "true");
+    tabInstances.tabIndex = isMcp ? -1 : 0;
+    panelMcp.hidden = !isMcp;
+    panelInstances.hidden = isMcp;
+  }
+
+  function renderMcpPanel(mcpMeta) {
+    sessionMcp = mcpMeta || null;
+    mcpSnippet.textContent = formatMcpJson(sessionMcp);
+
+    if (!sessionMcp || sessionMcp.agentAuthConfigured) {
+      mcpTokenHint.hidden = true;
+      mcpTokenHint.textContent = "";
+    } else {
+      mcpTokenHint.hidden = false;
+      mcpTokenHint.textContent =
+        "网关未配置 Agent token（启动时 --token 或 JAVA_DIAG_AUTH_TOKEN）；上方 headers 为占位，请自行替换。";
+    }
+  }
+
+  function flashCopyToast(ok) {
+    if (copyToastTimer) clearTimeout(copyToastTimer);
+    copyToast.textContent = ok ? "已复制到剪贴板" : "复制失败，请手动选择上方 JSON";
+    copyToast.classList.toggle("fail", !ok);
+    copyToast.hidden = false;
+    copyToastTimer = setTimeout(() => {
+      copyToast.hidden = true;
+      copyToastTimer = null;
+    }, ok ? 1800 : 2800);
+  }
+
+  async function copyText(text) {
+    let ok = false;
+
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+      try {
+        await navigator.clipboard.writeText(text);
+        ok = true;
+      } catch {
+        ok = false;
+      }
+    }
+
+    if (!ok) {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        ta.style.top = "0";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        ta.setSelectionRange(0, text.length);
+        ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+      } catch {
+        ok = false;
+      }
+    }
+
+    flashCopyToast(ok);
+    return ok;
+  }
+
+  async function loadSession() {
     const res = await api("/session");
     const data = await res.json();
+    if (data.authenticated === true && data.mcp) {
+      renderMcpPanel(data.mcp);
+    }
     return data.authenticated === true;
   }
 
@@ -134,9 +246,17 @@
       return;
     }
     showConsole(true);
+    switchTab(TAB_MCP);
+    await loadSession();
     await refreshInstances();
     startTimer();
   });
+
+  btnCopyUrl.addEventListener("click", () => copyText(mcpUrl()));
+  btnCopyJson.addEventListener("click", () => copyText(formatMcpJson(sessionMcp)));
+
+  tabMcp.addEventListener("click", () => switchTab(TAB_MCP));
+  tabInstances.addEventListener("click", () => switchTab(TAB_INSTANCES));
 
   btnLogout.addEventListener("click", async () => {
     await api("/logout", { method: "POST" });
@@ -145,7 +265,8 @@
   });
 
   (async function init() {
-    if (await checkSession()) {
+    switchTab(TAB_MCP);
+    if (await loadSession()) {
       showConsole(true);
       await refreshInstances();
       startTimer();

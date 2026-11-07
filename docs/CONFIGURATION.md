@@ -163,6 +163,7 @@ java -jar java-diag-gateway.jar \
 
 # 浏览器打开注册表控制台（默认 admin / java-diag）
 # http://127.0.0.1:8787/admin/
+# 登录后控制台展示 Cursor mcp.json 片段，可一键复制 MCP URL 与完整配置（含 Agent Bearer，仅 admin session）。
 ```
 
 ---
