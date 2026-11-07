@@ -63,6 +63,8 @@ Registry（`/registry/*`）无共享密钥：信任内网；Agent→Gateway 仍�
 
 ### 2) 启动探针并注册
 
+`--service-name` / `JAVA_DIAG_SERVICE_NAME` 可选；未设置时默认为本机主网卡 IP（非 hostname）。
+
 ```bash
 java -jar java-diag-mcp-server/target/java-diag-mcp-server.jar \
   --host 0.0.0.0 --port 8765 --token probe-secret \

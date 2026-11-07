@@ -67,6 +67,64 @@ class DiagConfigTransportTest {
                 Map.of(),
                 List.of("--register-url", "http://gateway:8787", "--service-name", "order"));
         assertEquals("http://gateway:8787", config.registerUrl().orElseThrow());
-        assertEquals("order", config.serviceName().orElseThrow());
+        assertEquals("order", config.serviceName());
+    }
+
+    @Test
+    void serviceNameDefaultsToPrimaryIpWhenUnset() {
+        DiagConfig config = DiagConfig.fromEnvironment(Map.of(), List.of());
+        assertEquals(DiagConfig.primaryIpAddress(), config.serviceName());
+        assertTrue(looksLikeIp(config.serviceName()),
+                "default serviceName should be an IP, got: " + config.serviceName());
+    }
+
+    @Test
+    void serviceNameFromCliOverridesDefault() {
+        DiagConfig config = DiagConfig.fromEnvironment(
+                Map.of(),
+                List.of("--service-name", "order-service"));
+        assertEquals("order-service", config.serviceName());
+    }
+
+    @Test
+    void serviceNameFromEnvOverridesDefault() {
+        DiagConfig config = DiagConfig.fromEnvironment(
+                Map.of(DiagConfig.ENV_SERVICE_NAME, "from-env"),
+                List.of());
+        assertEquals("from-env", config.serviceName());
+    }
+
+    @Test
+    void registerUrlWorksWithoutServiceName() {
+        DiagConfig config = DiagConfig.fromEnvironment(
+                Map.of(),
+                List.of("--register-url", "http://gateway:8787"));
+        assertEquals("http://gateway:8787", config.registerUrl().orElseThrow());
+        assertEquals(DiagConfig.primaryIpAddress(), config.serviceName());
+    }
+
+    private static boolean looksLikeIp(String value) {
+        // IPv4 dotted-quad or IPv6 (contains ':'); reject bare hostnames
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+        if (value.contains(":")) {
+            return true;
+        }
+        String[] parts = value.split("\\.");
+        if (parts.length != 4) {
+            return false;
+        }
+        for (String part : parts) {
+            try {
+                int n = Integer.parseInt(part);
+                if (n < 0 || n > 255) {
+                    return false;
+                }
+            } catch (NumberFormatException ex) {
+                return false;
+            }
+        }
+        return true;
     }
 }
