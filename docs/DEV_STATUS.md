@@ -26,6 +26,10 @@ Maven 父工程 + 两模块：
 | 允许 Agent 直连探针 | ✅（设计 + 行为） |
 | Nacos | ❌ P2 |
 
+## 文档
+
+- [CONFIGURATION.md](CONFIGURATION.md) — 探针 / 网关全部配置项（env + CLI）
+
 ## 验证
 
 ```bash
