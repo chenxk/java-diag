@@ -16,6 +16,19 @@ mvn -q clean package
 - `java-diag-mcp-server/target/java-diag-mcp-server.jar`
 - `java-diag-gateway/target/java-diag-gateway.jar`
 
+## 配置
+
+全部 CLI / 环境变量（传输、host/port、token、日志白名单、超时、输出上限、危险工具、审计路径、注册与 TTL 等）见：
+
+**[docs/CONFIGURATION.md](docs/CONFIGURATION.md)**
+
+```bash
+java -jar java-diag-mcp-server.jar --help
+java -jar java-diag-gateway.jar --help
+```
+
+加载顺序：环境变量 → CLI 覆盖。无独立配置文件。
+
 ## 单机探针
 
 ```bash

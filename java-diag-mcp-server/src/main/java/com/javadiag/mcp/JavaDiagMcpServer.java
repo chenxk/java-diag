@@ -99,6 +99,7 @@ public final class JavaDiagMcpServer {
 
                 Default transport: HTTP (Agent or Gateway connects via IP:port)
                 Local IDE fallback: --stdio
+                Config: env first, then CLI overrides. Full list: docs/CONFIGURATION.md
 
                 Usage:
                   java -jar java-diag-mcp-server.jar --port 8765 --token probe-secret
@@ -108,13 +109,30 @@ public final class JavaDiagMcpServer {
                        --advertise-url http://10.0.1.11:8765
                   java -jar java-diag-mcp-server.jar --stdio
 
-                Cluster flags:
-                  --service-name <name>
-                  --instance-id <id>
-                  --tag key=value              (repeatable)
-                  --register-url <gateway>     enables heartbeat registration (no register-token; trust intranet)
+                Transport / HTTP:
+                  --http | --stdio
+                  --host <addr>                default 0.0.0.0 (JAVA_DIAG_HTTP_HOST)
+                  --port <port>                default 8765 (JAVA_DIAG_HTTP_PORT)
+                  --token / --auth-token <v>   Bearer token (JAVA_DIAG_AUTH_TOKEN)
+
+                Cluster:
+                  --service-name <name>        JAVA_DIAG_SERVICE_NAME
+                  --instance-id <id>           JAVA_DIAG_INSTANCE_ID (default hostname-pid)
+                  --tag key=value              repeatable; or JAVA_DIAG_TAGS=k=v,k2=v2
+                  --register-url <gateway>     enables heartbeat (no register-token; trust intranet)
                   --advertise-url <url>        public base URL registered to gateway
-                  --heartbeat-interval-seconds <n>   default 20
+                  --heartbeat-interval-seconds <n>   default 20 (min effective 5)
+
+                Env-only (no CLI):
+                  JAVA_DIAG_TRANSPORT=http|stdio
+                  JAVA_DIAG_ALLOWED_LOG_DIRS=/a,/b
+                  JAVA_DIAG_ALLOWED_MAIN_CLASS_REGEX=<regex>
+                  JAVA_DIAG_TOOL_TIMEOUT_MS=15000
+                  JAVA_DIAG_MAX_OUTPUT_BYTES=262144
+                  JAVA_DIAG_DANGEROUS_TOOLS_ENABLED=false
+                  JAVA_DIAG_AUDIT_PATH=./logs/java-diag-audit.log
+
+                Other: --help / -h   --list-tools
                 """);
     }
 }
