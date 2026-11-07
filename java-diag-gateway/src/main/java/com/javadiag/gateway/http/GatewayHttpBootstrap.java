@@ -1,5 +1,8 @@
 package com.javadiag.gateway.http;
 
+import com.javadiag.gateway.admin.AdminApiServlet;
+import com.javadiag.gateway.admin.AdminCredentials;
+import com.javadiag.gateway.admin.AdminStaticServlet;
 import com.javadiag.gateway.config.GatewayConfig;
 import com.javadiag.gateway.json.JsonSupport;
 import com.javadiag.gateway.mcp.GatewayToolRegistrar;
@@ -17,6 +20,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.eclipse.jetty.ee10.servlet.FilterHolder;
 import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
 import org.eclipse.jetty.ee10.servlet.ServletHolder;
+import org.eclipse.jetty.ee10.servlet.SessionHandler;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
 
@@ -70,6 +74,7 @@ public final class GatewayHttpBootstrap {
 
         ServletContextHandler context = new ServletContextHandler();
         context.setContextPath("/");
+        context.setSessionHandler(new SessionHandler());
         jetty.setHandler(context);
 
         config.authToken().ifPresent(token -> context.addFilter(
@@ -90,6 +95,13 @@ public final class GatewayHttpBootstrap {
         context.addServlet(
                 new ServletHolder(new RegistryServlet(registry, json, config.registryRegisterToken())),
                 "/registry/*");
+
+        AdminCredentials adminCredentials = new AdminCredentials(config.adminUser(), config.adminPassword());
+        context.addServlet(
+                new ServletHolder(new AdminApiServlet(registry, json, adminCredentials)),
+                "/admin/api/*");
+        context.addServlet(new ServletHolder(new AdminStaticServlet()), "/admin/*");
+
         context.addServlet(new ServletHolder(new HealthServlet()), "/health");
         context.addServlet(new ServletHolder(new RootServlet()), "/");
 
@@ -98,6 +110,7 @@ public final class GatewayHttpBootstrap {
         System.err.println("  Agent SSE:     /sse");
         System.err.println("  Agent MCP:     /mcp");
         System.err.println("  Registry:      /registry/register|heartbeat|deregister|instances");
+        System.err.println("  Admin UI:      /admin/  (default user " + config.adminUser() + ")");
         System.err.println("  tools:         " + String.join(", ", tools.toolNames()));
         if (config.authToken().isEmpty()) {
             System.err.println("  WARNING: agent auth token not set (--token / JAVA_DIAG_AUTH_TOKEN)");
@@ -172,6 +185,7 @@ public final class GatewayHttpBootstrap {
                     java-diag-gateway %s
                     Agent MCP:  /sse  and  /mcp
                     Registry:   /registry/*
+                    Admin:      /admin/  (registry console)
                     Health:     /health
                     Direct probe access remains allowed by design.
                     """.formatted(config.version());

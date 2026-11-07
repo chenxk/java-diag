@@ -55,7 +55,10 @@ public final class JavaDiagGateway {
                   JAVA_DIAG_GATEWAY_AUDIT_PATH        JSONL proxy audit (default ./logs/java-diag-gateway-audit.log)
                   JAVA_DIAG_REGISTRY_REGISTER_TOKEN   optional registry Bearer / X-Registry-Token (default off)
                   JAVA_DIAG_DUMP_COOLDOWN_MS          proxy cooldown for dump-class tools (default 10000)
+                  JAVA_DIAG_ADMIN_USER                admin console username (default admin)
+                  JAVA_DIAG_ADMIN_PASSWORD            admin console password (default java-diag)
                   --register-token <value>            CLI override for registry token
+                  --admin-user / --admin-password       admin console credentials
 
                 Registry (/registry/*): no auth by default (trust intranet). Set register-token for LAN hardening.
                 Keep the gateway registry port off the public internet.
@@ -63,6 +66,7 @@ public final class JavaDiagGateway {
                 Endpoints:
                   /sse  /mcp          Agent MCP
                   /registry/*         probe register/heartbeat/deregister/instances
+                  /admin/             registry console (session login; API under /admin/api/*)
                   /health             liveness
                 """);
     }

@@ -62,6 +62,9 @@ java -jar java-diag-gateway/target/java-diag-gateway.jar \
 
 Registry（`/registry/*`）无共享密钥：信任内网；Agent→Gateway 仍用 `--token`。
 
+**管理控制台**（浏览器查看已注册探针）：`http://<gateway-host>:8787/admin/`  
+默认账号 `admin` / `java-diag`（可用 `JAVA_DIAG_ADMIN_USER` / `JAVA_DIAG_ADMIN_PASSWORD` 覆盖）。
+
 ### 2) 启动探针并注册
 
 `--service-name` / `JAVA_DIAG_SERVICE_NAME` 可选（默认本机主网卡 IP）。**无** `--instance-id`：实例身份由 `--advertise-url` 的 `host:port` 推导（与 Registry `mcpBaseUrl` 一致）。

@@ -108,6 +108,8 @@ Agent→Gateway 用 Bearer token。`/registry/*` 默认无鉴权（信任内网�
 | `JAVA_DIAG_GATEWAY_AUDIT_PATH` | path | `./logs/java-diag-gateway-audit.log` | Gateway 代理调用审计（**JSON Lines**，含 `argsDigest`） | `JAVA_DIAG_GATEWAY_AUDIT_PATH=/var/log/java-diag-gw-audit.jsonl` |
 | `JAVA_DIAG_DUMP_COOLDOWN_MS` | long（ms） | `10000` | Gateway 侧重昂贵工具代理冷却（按 `instanceId+tool`）；`0` 关闭 | `JAVA_DIAG_DUMP_COOLDOWN_MS=30000` |
 | `JAVA_DIAG_REGISTRY_REGISTER_TOKEN` / `--register-token` | string | 空 | 注册表 API 鉴权；探针侧用同名 env 发送 token | `--register-token reg-secret` |
+| `JAVA_DIAG_ADMIN_USER` / `--admin-user` | string | `admin` | **管理控制台**登录用户名（`/admin/`）；与 Agent / Registry token **无关** | `--admin-user ops` |
+| `JAVA_DIAG_ADMIN_PASSWORD` / `--admin-password` | string | `java-diag` | 管理控制台登录密码 | `--admin-password 'change-me'` |
 
 ### 2.2 注册表 TTL 与实例标识
 
@@ -139,7 +141,9 @@ Agent→Gateway 用 Bearer token。`/registry/*` 默认无鉴权（信任内网�
 | 路径 | 用途 | 鉴权 |
 |------|------|------|
 | `/sse`、`/mcp` | Agent MCP（含 `diag.list_instances` 与代理工具） | 若配置了 token，需 `Authorization: Bearer …` |
-| `/registry/*` | 探针 register / heartbeat / deregister / instances | 默认无鉴权；配置 register-token 后需 Bearer 或 `X-Registry-Token` |
+| `/registry/*` | 探针 register / heartbeat / deregister / instances | 默认无鉴权；配置 register-token 后 **写操作**需 Bearer 或 `X-Registry-Token`；`GET /registry/instances` 仍可读 |
+| `/admin/` | 静态注册表控制台（HTML） | 无 Agent token；登录后 HttpSession |
+| `/admin/api/*` | 控制台 JSON：`login` `logout` `session` `instances` | `instances` 等需已登录 session |
 | `/health` | 存活探测 | 无 |
 
 ### 2.6 Gateway 示例
@@ -155,6 +159,9 @@ java -jar java-diag-gateway.jar \
 java -jar java-diag-gateway.jar \
   --host 0.0.0.0 --port 8787 --token agent-secret \
   --heartbeat-ttl-seconds 90
+
+# 浏览器打开注册表控制台（默认 admin / java-diag）
+# http://127.0.0.1:8787/admin/
 ```
 
 ---
@@ -167,7 +174,7 @@ java -jar java-diag-gateway.jar \
 
 ### Gateway
 
-`JAVA_DIAG_HTTP_HOST` · `JAVA_DIAG_HTTP_PORT` · `JAVA_DIAG_AUTH_TOKEN` · `JAVA_DIAG_GATEWAY_AUDIT_PATH` · `JAVA_DIAG_DUMP_COOLDOWN_MS` · `JAVA_DIAG_REGISTRY_REGISTER_TOKEN` · `JAVA_DIAG_HEARTBEAT_TTL_SECONDS` · `JAVA_DIAG_INSTANCE_ID`
+`JAVA_DIAG_HTTP_HOST` · `JAVA_DIAG_HTTP_PORT` · `JAVA_DIAG_AUTH_TOKEN` · `JAVA_DIAG_GATEWAY_AUDIT_PATH` · `JAVA_DIAG_DUMP_COOLDOWN_MS` · `JAVA_DIAG_REGISTRY_REGISTER_TOKEN` · `JAVA_DIAG_HEARTBEAT_TTL_SECONDS` · `JAVA_DIAG_INSTANCE_ID` · `JAVA_DIAG_ADMIN_USER` · `JAVA_DIAG_ADMIN_PASSWORD`
 
 > Probe 与 Gateway 共用部分 env 名（`JAVA_DIAG_HTTP_*`、`JAVA_DIAG_AUTH_TOKEN`）。`JAVA_DIAG_INSTANCE_ID` **仅 Gateway**（自身 envelope）。探针无 instance-id env。分进程启动时各自设置即可。
 

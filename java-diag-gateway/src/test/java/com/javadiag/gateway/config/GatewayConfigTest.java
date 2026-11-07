@@ -35,4 +35,20 @@ class GatewayConfigTest {
                 List.of());
         assertEquals("env-reg", config.registryRegisterToken().orElseThrow());
     }
+
+    @Test
+    void defaultAdminCredentials() {
+        GatewayConfig config = GatewayConfig.from(Map.of(), List.of());
+        assertEquals(GatewayConfig.DEFAULT_ADMIN_USER, config.adminUser());
+        assertEquals(GatewayConfig.DEFAULT_ADMIN_PASSWORD, config.adminPassword());
+    }
+
+    @Test
+    void parsesAdminFromCli() {
+        GatewayConfig config = GatewayConfig.from(
+                Map.of(),
+                List.of("--admin-user", "ops", "--admin-password", "s3cret"));
+        assertEquals("ops", config.adminUser());
+        assertEquals("s3cret", config.adminPassword());
+    }
 }

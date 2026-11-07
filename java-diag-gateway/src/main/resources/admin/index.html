@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>java-diag · Registry Console</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/admin/app.css">
+</head>
+<body>
+  <div class="scanline" aria-hidden="true"></div>
+  <div class="grid-bg" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">◇</span>
+      <div>
+        <h1>JAVA-DIAG</h1>
+        <p class="sub">Gateway Registry Console</p>
+      </div>
+    </div>
+    <div class="topbar-meta" id="refresh-meta">—</div>
+    <button type="button" class="btn ghost" id="btn-logout" hidden>退出登录</button>
+  </header>
+
+  <main>
+    <section id="panel-login" class="panel login-panel">
+      <h2>控制台登录</h2>
+      <p class="hint">与 Agent Bearer / Registry token 独立；默认账号见文档。</p>
+      <form id="form-login" autocomplete="on">
+        <label>
+          <span>用户名</span>
+          <input name="username" type="text" required autocomplete="username">
+        </label>
+        <label>
+          <span>密码</span>
+          <input name="password" type="password" required autocomplete="current-password">
+        </label>
+        <p class="err" id="login-error" hidden></p>
+        <button type="submit" class="btn primary">进入控制台</button>
+      </form>
+    </section>
+
+    <section id="panel-console" class="panel console-panel" hidden>
+      <div class="stats">
+        <div class="stat">
+          <span class="stat-label">注册总数</span>
+          <span class="stat-value" id="stat-count">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">健康</span>
+          <span class="stat-value ok" id="stat-healthy">0</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">过期 / 不健康</span>
+          <span class="stat-value warn" id="stat-unhealthy">0</span>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>状态</th>
+              <th>Service</th>
+              <th>Instance</th>
+              <th>Host</th>
+              <th>MCP Base</th>
+              <th>Tags</th>
+              <th>Version</th>
+              <th>最后心跳</th>
+            </tr>
+          </thead>
+          <tbody id="instance-rows"></tbody>
+        </table>
+        <div id="empty-state" class="empty" hidden>
+          <p>暂无注册探针</p>
+          <p class="hint">探针配置 <code>--register-url</code> 后会出现在此列表（约 5–10s 刷新）。</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span>只读视图 · 数据来自 InMemoryRegistry</span>
+    <span id="foot-clock"></span>
+  </footer>
+
+  <script src="/admin/app.js" defer></script>
+</body>
+</html>

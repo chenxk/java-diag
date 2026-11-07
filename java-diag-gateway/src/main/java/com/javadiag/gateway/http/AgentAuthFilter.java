@@ -58,7 +58,9 @@ public final class AgentAuthFilter implements Filter {
         return "/health".equals(path)
                 || "/".equals(path)
                 || "/registry".equals(path)
-                || path.startsWith("/registry/");
+                || path.startsWith("/registry/")
+                || "/admin".equals(path)
+                || path.startsWith("/admin/");
     }
 
     static String normalizePath(String requestUri) {

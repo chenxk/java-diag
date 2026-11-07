@@ -15,8 +15,12 @@ public final class GatewayConfig {
     public static final String ENV_AUDIT_PATH = "JAVA_DIAG_GATEWAY_AUDIT_PATH";
     public static final String ENV_REGISTRY_REGISTER_TOKEN = "JAVA_DIAG_REGISTRY_REGISTER_TOKEN";
     public static final String ENV_DUMP_COOLDOWN_MS = "JAVA_DIAG_DUMP_COOLDOWN_MS";
+    public static final String ENV_ADMIN_USER = "JAVA_DIAG_ADMIN_USER";
+    public static final String ENV_ADMIN_PASSWORD = "JAVA_DIAG_ADMIN_PASSWORD";
 
     private static final String DEFAULT_HOST = "0.0.0.0";
+    public static final String DEFAULT_ADMIN_USER = "admin";
+    public static final String DEFAULT_ADMIN_PASSWORD = "java-diag";
     private static final int DEFAULT_PORT = 8787;
     private static final long DEFAULT_TTL_SECONDS = 90L;
     private static final long DEFAULT_DUMP_COOLDOWN_MS = 10_000L;
@@ -30,6 +34,8 @@ public final class GatewayConfig {
     private final Path auditPath;
     private final Optional<String> registryRegisterToken;
     private final long dumpCooldownMs;
+    private final String adminUser;
+    private final String adminPassword;
 
     private GatewayConfig(
             String httpHost,
@@ -40,7 +46,9 @@ public final class GatewayConfig {
             String version,
             Path auditPath,
             Optional<String> registryRegisterToken,
-            long dumpCooldownMs) {
+            long dumpCooldownMs,
+            String adminUser,
+            String adminPassword) {
         this.httpHost = httpHost;
         this.httpPort = httpPort;
         this.authToken = authToken;
@@ -50,6 +58,8 @@ public final class GatewayConfig {
         this.auditPath = auditPath;
         this.registryRegisterToken = registryRegisterToken;
         this.dumpCooldownMs = dumpCooldownMs;
+        this.adminUser = adminUser;
+        this.adminPassword = adminPassword;
     }
 
     public static GatewayConfig from(List<String> cliArgs) {
@@ -71,6 +81,10 @@ public final class GatewayConfig {
         Optional<String> registryToken =
                 Optional.ofNullable(env.get(ENV_REGISTRY_REGISTER_TOKEN)).filter(s -> !s.isBlank());
         long dumpCooldown = parseLong(env.get(ENV_DUMP_COOLDOWN_MS), DEFAULT_DUMP_COOLDOWN_MS);
+        String adminUser = Optional.ofNullable(env.get(ENV_ADMIN_USER)).filter(s -> !s.isBlank())
+                .orElse(DEFAULT_ADMIN_USER);
+        String adminPassword = Optional.ofNullable(env.get(ENV_ADMIN_PASSWORD)).filter(s -> !s.isBlank())
+                .orElse(DEFAULT_ADMIN_PASSWORD);
 
         for (int i = 0; i < cliArgs.size(); i++) {
             String arg = cliArgs.get(i);
@@ -80,6 +94,8 @@ public final class GatewayConfig {
                 case "--token", "--auth-token" -> auth = Optional.of(requireValue(cliArgs, ++i, arg));
                 case "--heartbeat-ttl-seconds" -> ttl = Long.parseLong(requireValue(cliArgs, ++i, arg));
                 case "--register-token" -> registryToken = Optional.of(requireValue(cliArgs, ++i, arg));
+                case "--admin-user" -> adminUser = requireValue(cliArgs, ++i, arg);
+                case "--admin-password" -> adminPassword = requireValue(cliArgs, ++i, arg);
                 default -> {
                 }
             }
@@ -90,7 +106,9 @@ public final class GatewayConfig {
         if (ttl < 5) {
             throw new IllegalArgumentException("heartbeat TTL must be >= 5 seconds");
         }
-        return new GatewayConfig(host, port, auth, ttl, instanceId, "0.1.0", auditPath, registryToken, dumpCooldown);
+        return new GatewayConfig(
+                host, port, auth, ttl, instanceId, "0.1.0", auditPath, registryToken, dumpCooldown, adminUser,
+                adminPassword);
     }
 
     private static String requireValue(List<String> args, int index, String flag) {
@@ -145,5 +163,13 @@ public final class GatewayConfig {
 
     public long dumpCooldownMs() {
         return dumpCooldownMs;
+    }
+
+    public String adminUser() {
+        return adminUser;
+    }
+
+    public String adminPassword() {
+        return adminPassword;
     }
 }

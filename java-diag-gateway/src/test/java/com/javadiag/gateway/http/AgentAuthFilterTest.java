@@ -15,6 +15,9 @@ class AgentAuthFilterTest {
         assertFalse(AgentAuthFilter.isExemptPath("/registryevil"));
         assertFalse(AgentAuthFilter.isExemptPath("/sse"));
         assertFalse(AgentAuthFilter.isExemptPath("/mcp"));
+        assertTrue(AgentAuthFilter.isExemptPath("/admin"));
+        assertTrue(AgentAuthFilter.isExemptPath("/admin/api/login"));
+        assertFalse(AgentAuthFilter.isExemptPath("/admin-evil"));
     }
 
     @Test
