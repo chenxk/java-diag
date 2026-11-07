@@ -37,8 +37,11 @@ public final class DiagConfig {
     public static final String ENV_ADVERTISE_URL = "JAVA_DIAG_ADVERTISE_URL";
     public static final String ENV_HEARTBEAT_INTERVAL = "JAVA_DIAG_HEARTBEAT_INTERVAL_SECONDS";
     public static final String ENV_TAGS = "JAVA_DIAG_TAGS";
+    public static final String ENV_DUMP_COOLDOWN_MS = "JAVA_DIAG_DUMP_COOLDOWN_MS";
+    public static final String ENV_REGISTRY_REGISTER_TOKEN = "JAVA_DIAG_REGISTRY_REGISTER_TOKEN";
 
     private static final long DEFAULT_TIMEOUT_MS = 15_000L;
+    private static final long DEFAULT_DUMP_COOLDOWN_MS = 10_000L;
     private static final long DEFAULT_DUMP_TIMEOUT_MS = 30_000L;
     private static final int DEFAULT_MAX_OUTPUT_BYTES = 256 * 1024;
     private static final String DEFAULT_HTTP_HOST = "0.0.0.0";
@@ -68,6 +71,8 @@ public final class DiagConfig {
     private final Optional<String> advertiseUrl;
     private final long heartbeatIntervalSeconds;
     private final Map<String, String> tags;
+    private final long dumpCooldownMs;
+    private final Optional<String> registryRegisterToken;
 
     private DiagConfig(
             List<Path> allowedLogDirs,
@@ -87,7 +92,9 @@ public final class DiagConfig {
             Optional<String> registerUrl,
             Optional<String> advertiseUrl,
             long heartbeatIntervalSeconds,
-            Map<String, String> tags) {
+            Map<String, String> tags,
+            long dumpCooldownMs,
+            Optional<String> registryRegisterToken) {
         this.allowedLogDirs = List.copyOf(allowedLogDirs);
         this.allowedMainClassRegex = allowedMainClassRegex;
         this.toolTimeoutMs = toolTimeoutMs;
@@ -106,6 +113,8 @@ public final class DiagConfig {
         this.advertiseUrl = advertiseUrl;
         this.heartbeatIntervalSeconds = heartbeatIntervalSeconds;
         this.tags = Map.copyOf(tags);
+        this.dumpCooldownMs = dumpCooldownMs;
+        this.registryRegisterToken = registryRegisterToken;
     }
 
     public static DiagConfig fromEnvironment() {
@@ -150,6 +159,9 @@ public final class DiagConfig {
         Optional<String> advertiseUrl = Optional.ofNullable(env.get(ENV_ADVERTISE_URL)).filter(s -> !s.isBlank());
         long heartbeatInterval = parseLong(env.get(ENV_HEARTBEAT_INTERVAL), DEFAULT_HEARTBEAT_INTERVAL);
         Map<String, String> tags = parseTags(env.get(ENV_TAGS));
+        long dumpCooldownMs = parseLong(env.get(ENV_DUMP_COOLDOWN_MS), DEFAULT_DUMP_COOLDOWN_MS);
+        Optional<String> registryRegisterToken =
+                Optional.ofNullable(env.get(ENV_REGISTRY_REGISTER_TOKEN)).filter(s -> !s.isBlank());
 
         for (int i = 0; i < cliArgs.size(); i++) {
             String arg = cliArgs.get(i);
@@ -205,7 +217,9 @@ public final class DiagConfig {
                 registerUrl,
                 advertiseUrl,
                 heartbeatInterval,
-                tags);
+                tags,
+                dumpCooldownMs,
+                registryRegisterToken);
     }
 
     private static String requireValue(List<String> args, int index, String flag) {
@@ -438,5 +452,13 @@ public final class DiagConfig {
 
     public Map<String, String> tags() {
         return tags;
+    }
+
+    public long dumpCooldownMs() {
+        return dumpCooldownMs;
+    }
+
+    public Optional<String> registryRegisterToken() {
+        return registryRegisterToken;
     }
 }

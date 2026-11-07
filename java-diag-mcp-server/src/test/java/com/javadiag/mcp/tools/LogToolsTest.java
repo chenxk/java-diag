@@ -75,4 +75,33 @@ class LogToolsTest {
         PathGuard guard = new PathGuard(List.of(tempDir));
         assertTrue(guard.isUnderAllowed(tempDir.resolve("a.log")));
     }
+
+    @Test
+    void grepSinceSkipsOlderLines() throws Exception {
+        Path logs = tempDir.resolve("logs");
+        Files.createDirectories(logs);
+        Path file = logs.resolve("since.log");
+        Files.writeString(
+                file,
+                """
+                2026-11-07 08:00:00.000 OLD line
+                2026-11-07 14:00:00.000 NEW ERROR hit
+                """);
+
+        Map<String, String> env = Map.of(
+                DiagConfig.ENV_ALLOWED_LOG_DIRS, logs.toString(),
+                DiagConfig.ENV_AUDIT_PATH, tempDir.resolve("audit.log").toString());
+        DiagConfig config = DiagConfig.fromEnvironment(env);
+        LogTools logTools = new LogTools(ToolSupport.create(config, JsonCodec.createDefault()));
+
+        ToolEnvelope grep = logTools.grepLog(Map.of(
+                "path", file.toString(),
+                "pattern", "ERROR",
+                "since", "2026-11-07 13:00:00")).envelope();
+        assertTrue(grep.ok());
+        @SuppressWarnings("unchecked")
+        Map<String, Object> data = (Map<String, Object>) grep.data();
+        assertEquals(1, data.get("matchCount"));
+        assertTrue((Boolean) data.get("sinceApplied"));
+    }
 }

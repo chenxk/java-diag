@@ -1,5 +1,7 @@
 package com.javadiag.gateway.config;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
 
@@ -10,10 +12,14 @@ public final class GatewayConfig {
     public static final String ENV_AUTH_TOKEN = "JAVA_DIAG_AUTH_TOKEN";
     public static final String ENV_HEARTBEAT_TTL = "JAVA_DIAG_HEARTBEAT_TTL_SECONDS";
     public static final String ENV_INSTANCE_ID = "JAVA_DIAG_INSTANCE_ID";
+    public static final String ENV_AUDIT_PATH = "JAVA_DIAG_GATEWAY_AUDIT_PATH";
+    public static final String ENV_REGISTRY_REGISTER_TOKEN = "JAVA_DIAG_REGISTRY_REGISTER_TOKEN";
+    public static final String ENV_DUMP_COOLDOWN_MS = "JAVA_DIAG_DUMP_COOLDOWN_MS";
 
     private static final String DEFAULT_HOST = "0.0.0.0";
     private static final int DEFAULT_PORT = 8787;
     private static final long DEFAULT_TTL_SECONDS = 90L;
+    private static final long DEFAULT_DUMP_COOLDOWN_MS = 10_000L;
 
     private final String httpHost;
     private final int httpPort;
@@ -21,6 +27,9 @@ public final class GatewayConfig {
     private final long heartbeatTtlSeconds;
     private final String instanceId;
     private final String version;
+    private final Path auditPath;
+    private final Optional<String> registryRegisterToken;
+    private final long dumpCooldownMs;
 
     private GatewayConfig(
             String httpHost,
@@ -28,13 +37,19 @@ public final class GatewayConfig {
             Optional<String> authToken,
             long heartbeatTtlSeconds,
             String instanceId,
-            String version) {
+            String version,
+            Path auditPath,
+            Optional<String> registryRegisterToken,
+            long dumpCooldownMs) {
         this.httpHost = httpHost;
         this.httpPort = httpPort;
         this.authToken = authToken;
         this.heartbeatTtlSeconds = heartbeatTtlSeconds;
         this.instanceId = instanceId;
         this.version = version;
+        this.auditPath = auditPath;
+        this.registryRegisterToken = registryRegisterToken;
+        this.dumpCooldownMs = dumpCooldownMs;
     }
 
     public static GatewayConfig from(List<String> cliArgs) {
@@ -48,6 +63,14 @@ public final class GatewayConfig {
         long ttl = parseLong(env.get(ENV_HEARTBEAT_TTL), DEFAULT_TTL_SECONDS);
         String instanceId = Optional.ofNullable(env.get(ENV_INSTANCE_ID)).filter(s -> !s.isBlank())
                 .orElseGet(() -> "gateway-" + ProcessHandle.current().pid());
+        Path auditPath = Paths.get(Optional.ofNullable(env.get(ENV_AUDIT_PATH))
+                .filter(s -> !s.isBlank())
+                .orElse("./logs/java-diag-gateway-audit.log"))
+                .toAbsolutePath()
+                .normalize();
+        Optional<String> registryToken =
+                Optional.ofNullable(env.get(ENV_REGISTRY_REGISTER_TOKEN)).filter(s -> !s.isBlank());
+        long dumpCooldown = parseLong(env.get(ENV_DUMP_COOLDOWN_MS), DEFAULT_DUMP_COOLDOWN_MS);
 
         for (int i = 0; i < cliArgs.size(); i++) {
             String arg = cliArgs.get(i);
@@ -56,6 +79,7 @@ public final class GatewayConfig {
                 case "--port" -> port = Integer.parseInt(requireValue(cliArgs, ++i, arg));
                 case "--token", "--auth-token" -> auth = Optional.of(requireValue(cliArgs, ++i, arg));
                 case "--heartbeat-ttl-seconds" -> ttl = Long.parseLong(requireValue(cliArgs, ++i, arg));
+                case "--register-token" -> registryToken = Optional.of(requireValue(cliArgs, ++i, arg));
                 default -> {
                 }
             }
@@ -66,7 +90,7 @@ public final class GatewayConfig {
         if (ttl < 5) {
             throw new IllegalArgumentException("heartbeat TTL must be >= 5 seconds");
         }
-        return new GatewayConfig(host, port, auth, ttl, instanceId, "0.1.0");
+        return new GatewayConfig(host, port, auth, ttl, instanceId, "0.1.0", auditPath, registryToken, dumpCooldown);
     }
 
     private static String requireValue(List<String> args, int index, String flag) {
@@ -109,5 +133,17 @@ public final class GatewayConfig {
 
     public String version() {
         return version;
+    }
+
+    public Path auditPath() {
+        return auditPath;
+    }
+
+    public Optional<String> registryRegisterToken() {
+        return registryRegisterToken;
+    }
+
+    public long dumpCooldownMs() {
+        return dumpCooldownMs;
     }
 }

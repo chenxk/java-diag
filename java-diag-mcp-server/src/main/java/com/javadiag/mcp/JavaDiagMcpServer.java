@@ -118,7 +118,7 @@ public final class JavaDiagMcpServer {
                 Cluster:
                   --service-name <name>        JAVA_DIAG_SERVICE_NAME (optional; default primary IP)
                   --tag key=value              repeatable; or JAVA_DIAG_TAGS=k=v,k2=v2
-                  --register-url <gateway>     enables heartbeat (no register-token; trust intranet)
+                  --register-url <gateway>     enables heartbeat (JAVA_DIAG_REGISTRY_REGISTER_TOKEN if gateway requires)
                   --advertise-url <url>        public base URL registered to gateway
                                                (instance identity = host:port from this URL)
                   --heartbeat-interval-seconds <n>   default 20 (min effective 5)
@@ -131,6 +131,8 @@ public final class JavaDiagMcpServer {
                   JAVA_DIAG_MAX_OUTPUT_BYTES=262144
                   JAVA_DIAG_DANGEROUS_TOOLS_ENABLED=false
                   JAVA_DIAG_AUDIT_PATH=./logs/java-diag-audit.log
+                  JAVA_DIAG_DUMP_COOLDOWN_MS=10000
+                  JAVA_DIAG_REGISTRY_REGISTER_TOKEN=<optional, sent on /registry/* calls>
 
                 Other: --help / -h   --list-tools
                 """);

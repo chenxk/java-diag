@@ -25,7 +25,7 @@ class ToolRegistrarTest {
                 DiagConfig.ENV_AUDIT_PATH, tempDir.resolve("audit.log").toString()));
         ToolRegistrar registrar = new ToolRegistrar(ToolSupport.create(config, JsonCodec.createDefault()));
         List<String> names = registrar.toolNames();
-        assertEquals(12, names.size());
+        assertEquals(15, names.size());
         assertTrue(names.contains("diag.ping"));
         assertTrue(names.contains("diag.list_processes"));
         assertTrue(names.contains("diag.resolve_java_pid"));
@@ -38,5 +38,8 @@ class ToolRegistrarTest {
         assertTrue(names.contains("diag.thread_dump"));
         assertTrue(names.contains("diag.vm_flags"));
         assertTrue(names.contains("diag.gc_histo"));
+        assertTrue(names.contains("diag.heap_dump"));
+        assertTrue(names.contains("diag.cpu_sample"));
+        assertTrue(names.contains("diag.vm_info"));
     }
 }

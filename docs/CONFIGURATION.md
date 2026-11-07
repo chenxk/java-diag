@@ -38,8 +38,9 @@ java -jar java-diag-gateway.jar --help
 | `JAVA_DIAG_TOOL_TIMEOUT_MS` | long（ms） | `15000` | 普通工具子进程超时 | `JAVA_DIAG_TOOL_TIMEOUT_MS=20000` |
 | （固定）dump 超时 | long（ms） | `30000` | heap/thread dump、`gc_histo` 等使用的超时；**无 env/CLI**，代码内常量 | — |
 | `JAVA_DIAG_MAX_OUTPUT_BYTES` | int（bytes） | `262144`（256 KiB） | 子进程 stdout/stderr 最大捕获字节；超出截断 | `JAVA_DIAG_MAX_OUTPUT_BYTES=524288` |
-| `JAVA_DIAG_DANGEROUS_TOOLS_ENABLED` | bool | `false` | 是否允许危险操作（当前：`diag.gc_histo` 的 `live=true` 会触发 Full GC） | `JAVA_DIAG_DANGEROUS_TOOLS_ENABLED=true` |
-| `JAVA_DIAG_AUDIT_PATH` | path | `./logs/java-diag-audit.log`（绝对路径规范化） | 审计日志文件路径 | `JAVA_DIAG_AUDIT_PATH=/var/log/java-diag-audit.log` |
+| `JAVA_DIAG_DANGEROUS_TOOLS_ENABLED` | bool | `false` | 是否允许危险操作：`diag.gc_histo` 的 `live=true`（Full GC）、`diag.heap_dump` | `JAVA_DIAG_DANGEROUS_TOOLS_ENABLED=true` |
+| `JAVA_DIAG_AUDIT_PATH` | path | `./logs/java-diag-audit.log`（绝对路径规范化） | 探针工具审计日志（单行 JSON） | `JAVA_DIAG_AUDIT_PATH=/var/log/java-diag-audit.log` |
+| `JAVA_DIAG_DUMP_COOLDOWN_MS` | long（ms） | `10000` | 昂贵 JVM 工具冷却：`thread_dump`、`gc_histo`、`heap_dump`、`cpu_sample`；`0` 关闭 | `JAVA_DIAG_DUMP_COOLDOWN_MS=30000` |
 
 布尔值接受：`1` / `true` / `yes` / `on` → true；`0` / `false` / `no` / `off` → false；其它回退默认。
 
@@ -51,7 +52,8 @@ java -jar java-diag-gateway.jar --help
 | （派生）`instanceId` | string | `{advertiseHost}:{port}` | **无独立 env/CLI**。由 `--advertise-url`（或 listen host + port / 主 IP）推导，与 Registry 的 `mcpBaseUrl` 一致；用于注册键、工具 envelope、`target.instanceId` | advertise `http://10.0.1.11:8765` → `10.0.1.11:8765` |
 | `JAVA_DIAG_TAGS` | string | 空 | 标签，逗号分隔 `key=value` | `JAVA_DIAG_TAGS=env=prod,az=a` |
 | `--tag` | `key=value`（可重复） | — | 追加/覆盖单个标签（CLI 优先合并） | `--tag env=prod --tag az=a` |
-| `JAVA_DIAG_REGISTER_URL` / `--register-url` | URL | 空 | Gateway 根地址；设置后启用心跳注册。**Registry 无共享密钥**（信任内网） | `--register-url http://gateway:8787` |
+| `JAVA_DIAG_REGISTER_URL` / `--register-url` | URL | 空 | Gateway 根地址；设置后启用心跳注册 | `--register-url http://gateway:8787` |
+| `JAVA_DIAG_REGISTRY_REGISTER_TOKEN` | string | 空 | Gateway 开启 registry token 时，探针向 `/registry/*` 附带 `Authorization: Bearer` 与 `X-Registry-Token` | `JAVA_DIAG_REGISTRY_REGISTER_TOKEN=reg-secret` |
 | `JAVA_DIAG_ADVERTISE_URL` / `--advertise-url` | URL | 空则推算 `http://{host}:{port}` | 注册到 Gateway 的对外可达 base URL；同时决定实例身份 | `--advertise-url http://10.0.1.11:8765` |
 | `JAVA_DIAG_HEARTBEAT_INTERVAL_SECONDS` / `--heartbeat-interval-seconds` | long（秒） | `20` | 心跳间隔；运行时会 `max(5, value)` | `--heartbeat-interval-seconds 15` |
 
@@ -94,7 +96,7 @@ java -jar java-diag-mcp-server.jar --stdio
 ## 2. 网关 Gateway（`java-diag-gateway`）
 
 Gateway **仅 HTTP**（无 stdio / 无 `JAVA_DIAG_TRANSPORT`）。  
-Agent→Gateway 用 Bearer token；`/registry/*` 与 `/health` **不做**共享密钥校验（信任内网，勿对公网暴露 Registry 端口）。
+Agent→Gateway 用 Bearer token。`/registry/*` 默认无鉴权（信任内网）；可设置 `JAVA_DIAG_REGISTRY_REGISTER_TOKEN` 要求探针注册/心跳携带 token。
 
 ### 2.1 HTTP 与鉴权
 
@@ -103,6 +105,9 @@ Agent→Gateway 用 Bearer token；`/registry/*` 与 `/health` **不做**共享�
 | `JAVA_DIAG_HTTP_HOST` / `--host` | string | `0.0.0.0` | HTTP 监听地址 | `--host 0.0.0.0` |
 | `JAVA_DIAG_HTTP_PORT` / `--port` | int `1..65535` | `8787` | HTTP 监听端口 | `--port 8787` |
 | `JAVA_DIAG_AUTH_TOKEN` / `--token` / `--auth-token` | string | 空（不鉴权） | Agent Bearer token（保护 `/sse`、`/mcp`）；未设置时启动 WARNING | `--token agent-secret` |
+| `JAVA_DIAG_GATEWAY_AUDIT_PATH` | path | `./logs/java-diag-gateway-audit.log` | Gateway 代理调用审计（**JSON Lines**，含 `argsDigest`） | `JAVA_DIAG_GATEWAY_AUDIT_PATH=/var/log/java-diag-gw-audit.jsonl` |
+| `JAVA_DIAG_DUMP_COOLDOWN_MS` | long（ms） | `10000` | Gateway 侧重昂贵工具代理冷却（按 `instanceId+tool`）；`0` 关闭 | `JAVA_DIAG_DUMP_COOLDOWN_MS=30000` |
+| `JAVA_DIAG_REGISTRY_REGISTER_TOKEN` / `--register-token` | string | 空 | 注册表 API 鉴权；探针侧用同名 env 发送 token | `--register-token reg-secret` |
 
 ### 2.2 注册表 TTL 与实例标识
 
@@ -134,7 +139,7 @@ Agent→Gateway 用 Bearer token；`/registry/*` 与 `/health` **不做**共享�
 | 路径 | 用途 | 鉴权 |
 |------|------|------|
 | `/sse`、`/mcp` | Agent MCP（含 `diag.list_instances` 与代理工具） | 若配置了 token，需 `Authorization: Bearer …` |
-| `/registry/*` | 探针 register / heartbeat / deregister / instances | 无共享密钥（信任内网） |
+| `/registry/*` | 探针 register / heartbeat / deregister / instances | 默认无鉴权；配置 register-token 后需 Bearer 或 `X-Registry-Token` |
 | `/health` | 存活探测 | 无 |
 
 ### 2.6 Gateway 示例
@@ -158,11 +163,11 @@ java -jar java-diag-gateway.jar \
 
 ### Probe
 
-`JAVA_DIAG_TRANSPORT` · `JAVA_DIAG_HTTP_HOST` · `JAVA_DIAG_HTTP_PORT` · `JAVA_DIAG_AUTH_TOKEN` · `JAVA_DIAG_ALLOWED_LOG_DIRS` · `JAVA_DIAG_ALLOWED_MAIN_CLASS_REGEX` · `JAVA_DIAG_TOOL_TIMEOUT_MS` · `JAVA_DIAG_MAX_OUTPUT_BYTES` · `JAVA_DIAG_DANGEROUS_TOOLS_ENABLED` · `JAVA_DIAG_AUDIT_PATH` · `JAVA_DIAG_SERVICE_NAME` · `JAVA_DIAG_TAGS` · `JAVA_DIAG_REGISTER_URL` · `JAVA_DIAG_ADVERTISE_URL` · `JAVA_DIAG_HEARTBEAT_INTERVAL_SECONDS`
+`JAVA_DIAG_TRANSPORT` · `JAVA_DIAG_HTTP_HOST` · `JAVA_DIAG_HTTP_PORT` · `JAVA_DIAG_AUTH_TOKEN` · `JAVA_DIAG_ALLOWED_LOG_DIRS` · `JAVA_DIAG_ALLOWED_MAIN_CLASS_REGEX` · `JAVA_DIAG_TOOL_TIMEOUT_MS` · `JAVA_DIAG_MAX_OUTPUT_BYTES` · `JAVA_DIAG_DANGEROUS_TOOLS_ENABLED` · `JAVA_DIAG_AUDIT_PATH` · `JAVA_DIAG_DUMP_COOLDOWN_MS` · `JAVA_DIAG_SERVICE_NAME` · `JAVA_DIAG_TAGS` · `JAVA_DIAG_REGISTER_URL` · `JAVA_DIAG_REGISTRY_REGISTER_TOKEN` · `JAVA_DIAG_ADVERTISE_URL` · `JAVA_DIAG_HEARTBEAT_INTERVAL_SECONDS`
 
 ### Gateway
 
-`JAVA_DIAG_HTTP_HOST` · `JAVA_DIAG_HTTP_PORT` · `JAVA_DIAG_AUTH_TOKEN` · `JAVA_DIAG_HEARTBEAT_TTL_SECONDS` · `JAVA_DIAG_INSTANCE_ID`
+`JAVA_DIAG_HTTP_HOST` · `JAVA_DIAG_HTTP_PORT` · `JAVA_DIAG_AUTH_TOKEN` · `JAVA_DIAG_GATEWAY_AUDIT_PATH` · `JAVA_DIAG_DUMP_COOLDOWN_MS` · `JAVA_DIAG_REGISTRY_REGISTER_TOKEN` · `JAVA_DIAG_HEARTBEAT_TTL_SECONDS` · `JAVA_DIAG_INSTANCE_ID`
 
 > Probe 与 Gateway 共用部分 env 名（`JAVA_DIAG_HTTP_*`、`JAVA_DIAG_AUTH_TOKEN`）。`JAVA_DIAG_INSTANCE_ID` **仅 Gateway**（自身 envelope）。探针无 instance-id env。分进程启动时各自设置即可。
 

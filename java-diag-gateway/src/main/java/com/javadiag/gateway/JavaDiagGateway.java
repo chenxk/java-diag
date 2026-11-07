@@ -52,8 +52,12 @@ public final class JavaDiagGateway {
                 Env-only:
                   JAVA_DIAG_INSTANCE_ID             gateway self envelope id (default gateway-{pid});
                                                     not used for probe routing (probes use advertise host:port)
+                  JAVA_DIAG_GATEWAY_AUDIT_PATH        JSONL proxy audit (default ./logs/java-diag-gateway-audit.log)
+                  JAVA_DIAG_REGISTRY_REGISTER_TOKEN   optional registry Bearer / X-Registry-Token (default off)
+                  JAVA_DIAG_DUMP_COOLDOWN_MS          proxy cooldown for dump-class tools (default 10000)
+                  --register-token <value>            CLI override for registry token
 
-                Registry (/registry/*) has no shared-secret auth (trust intranet).
+                Registry (/registry/*): no auth by default (trust intranet). Set register-token for LAN hardening.
                 Keep the gateway registry port off the public internet.
 
                 Endpoints:

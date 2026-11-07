@@ -12,24 +12,34 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
  * Control-plane HTTP API: /registry/register|heartbeat|deregister|instances.
- * No shared-secret auth — trust intranet; keep Registry off the public internet.
+ * Optional register-token auth ({@code JAVA_DIAG_REGISTRY_REGISTER_TOKEN}); default trust intranet.
  */
 public final class RegistryServlet extends HttpServlet {
 
     private final InMemoryRegistry registry;
     private final JsonSupport json;
+    private final Optional<String> registerToken;
 
-    public RegistryServlet(InMemoryRegistry registry, JsonSupport json) {
+    public RegistryServlet(InMemoryRegistry registry, JsonSupport json, Optional<String> registerToken) {
         this.registry = registry;
         this.json = json;
+        this.registerToken = registerToken == null ? Optional.empty() : registerToken;
+    }
+
+    public RegistryServlet(InMemoryRegistry registry, JsonSupport json) {
+        this(registry, json, Optional.empty());
     }
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        if (!authorizeRegister(req, resp)) {
+            return;
+        }
         String path = normalize(req.getPathInfo());
         String body = new String(req.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         Map<String, Object> payload = body.isBlank() ? Map.of() : json.toMap(body);
@@ -44,6 +54,9 @@ public final class RegistryServlet extends HttpServlet {
 
     @Override
     protected void doDelete(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        if (!authorizeRegister(req, resp)) {
+            return;
+        }
         String path = normalize(req.getPathInfo());
         if (!"/deregister".equals(path)) {
             writeError(resp, 404, "unknown registry path: " + path);
@@ -218,5 +231,24 @@ public final class RegistryServlet extends HttpServlet {
 
     private void writeError(HttpServletResponse resp, int status, String message) throws IOException {
         writeJson(resp, status, Map.of("ok", false, "error", message));
+    }
+
+    boolean authorizeRegister(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        if (registerToken.isEmpty()) {
+            return true;
+        }
+        String expected = registerToken.get();
+        String auth = req.getHeader("Authorization");
+        if (auth != null && auth.startsWith("Bearer ")) {
+            if (expected.equals(auth.substring("Bearer ".length()).trim())) {
+                return true;
+            }
+        }
+        String header = req.getHeader("X-Registry-Token");
+        if (expected.equals(header)) {
+            return true;
+        }
+        writeJson(resp, 401, Map.of("ok", false, "error", "registry register token required"));
+        return false;
     }
 }

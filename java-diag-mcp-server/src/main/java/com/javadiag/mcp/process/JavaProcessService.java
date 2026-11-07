@@ -87,6 +87,10 @@ public final class JavaProcessService {
         return matches;
     }
 
+    public Optional<JavaProcessInfo> lookup(long pid) {
+        return findByPid(pid);
+    }
+
     public void requireAlive(long pid) {
         Optional<JavaProcessInfo> info = findByPid(pid);
         if (info.isEmpty()) {

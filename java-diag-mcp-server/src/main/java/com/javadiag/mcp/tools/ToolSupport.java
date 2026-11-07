@@ -9,6 +9,7 @@ import com.javadiag.mcp.platform.JdkToolchain;
 import com.javadiag.mcp.platform.JsonCodec;
 import com.javadiag.mcp.platform.PathGuard;
 import com.javadiag.mcp.platform.ProcessRunner;
+import com.javadiag.mcp.platform.ToolRateLimiter;
 import com.javadiag.mcp.process.JavaProcessService;
 
 import java.util.LinkedHashMap;
@@ -27,6 +28,7 @@ public final class ToolSupport {
     private final JavaProcessService processService;
     private final AuditLogger auditLogger;
     private final JsonCodec jsonCodec;
+    private final ToolRateLimiter rateLimiter;
 
     public ToolSupport(
             DiagConfig config,
@@ -43,6 +45,7 @@ public final class ToolSupport {
         this.processService = processService;
         this.auditLogger = auditLogger;
         this.jsonCodec = jsonCodec;
+        this.rateLimiter = new ToolRateLimiter(config.dumpCooldownMs());
     }
 
     public static ToolSupport create(DiagConfig config, JsonCodec codec) {
@@ -82,6 +85,7 @@ public final class ToolSupport {
     public ToolEnvelope invoke(String tool, Map<String, Object> args, Function<Map<String, Object>, ToolResult> handler) {
         long start = System.currentTimeMillis();
         try {
+            rateLimiter.check(tool);
             ToolResult result = handler.apply(args == null ? Map.of() : args);
             long took = System.currentTimeMillis() - start;
             auditLogger.record(tool, "local", args, took, true, null);

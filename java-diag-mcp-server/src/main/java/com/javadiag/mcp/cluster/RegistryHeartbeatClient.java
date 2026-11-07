@@ -113,9 +113,14 @@ public final class RegistryHeartbeatClient implements AutoCloseable {
                 ? registerBase + path
                 : registerBase + "/registry" + path;
         try {
-            HttpRequest request = HttpRequest.newBuilder(URI.create(url))
+            HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url))
                     .timeout(Duration.ofSeconds(10))
-                    .header("Content-Type", "application/json")
+                    .header("Content-Type", "application/json");
+            config.registryRegisterToken().ifPresent(token -> {
+                builder.header("Authorization", "Bearer " + token);
+                builder.header("X-Registry-Token", token);
+            });
+            HttpRequest request = builder
                     .POST(HttpRequest.BodyPublishers.ofString(codec.toJson(body), StandardCharsets.UTF_8))
                     .build();
             HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());

@@ -2,6 +2,8 @@ package com.javadiag.mcp.tools;
 
 import com.javadiag.mcp.model.ErrorCode;
 import com.javadiag.mcp.platform.DiagException;
+import com.javadiag.mcp.platform.LogTimestampParser;
+import com.javadiag.mcp.process.JavaProcessInfo;
 import com.javadiag.mcp.tools.ToolSupport.ToolResult;
 
 import java.io.BufferedReader;
@@ -10,6 +12,7 @@ import java.io.RandomAccessFile;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
@@ -84,11 +87,17 @@ public final class LogTools {
                 }
             }
 
+            List<Map<String, Object>> inferred = new ArrayList<>();
+            if (pid != null) {
+                support.processService().lookup(pid).ifPresent(info -> inferred.addAll(inferLogPathsFromCmdline(info)));
+            }
+
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("pid", pid);
             data.put("app", app);
             data.put("paths", candidates);
-            data.put("note", "Non-recursive scan of allowedLogDirs (+ one-level logs/ subdir)");
+            data.put("inferredFromPid", inferred);
+            data.put("note", "Scan allowedLogDirs (+ logs/); inferredFromPid from JVM cmdline/system props");
             return ToolResult.of(data);
         });
     }
@@ -133,7 +142,8 @@ public final class LogTools {
                 throw new DiagException(ErrorCode.INVALID_ARGUMENT, "pattern is required");
             }
             int maxMatches = support.optInt(a, "maxMatches", 50, 1, 200);
-            String since = support.optString(a, "since"); // informational for P0; not fully parsed ISO
+            String since = support.optString(a, "since");
+            Instant sinceInstant = LogTimestampParser.parseSince(since);
 
             Path path = support.pathGuard().resolveAllowed(pathArg);
             if (!Files.isRegularFile(path)) {
@@ -167,6 +177,12 @@ public final class LogTools {
                         truncated = true;
                         break;
                     }
+                    if (sinceInstant != null) {
+                        Instant lineTs = LogTimestampParser.parseLineTimestamp(line);
+                        if (lineTs != null && lineTs.isBefore(sinceInstant)) {
+                            continue;
+                        }
+                    }
                     Matcher matcher = pattern.matcher(line);
                     if (matcher.find()) {
                         Map<String, Object> hit = new LinkedHashMap<>();
@@ -189,6 +205,7 @@ public final class LogTools {
             data.put("path", path.toString());
             data.put("pattern", patternText);
             data.put("since", since);
+            data.put("sinceApplied", sinceInstant != null);
             data.put("matchCount", matches.size());
             data.put("matches", matches);
             return ToolResult.of(data, truncated);
@@ -199,11 +216,23 @@ public final class LogTools {
         return wrap(CLUSTER_ERRORS, args, a -> {
             String pathArg = support.optString(a, "path");
             String window = support.optString(a, "window");
-            if (window == null || window.isBlank()) {
-                window = "15m";
+            String since = support.optString(a, "since");
+            Instant sinceInstant = LogTimestampParser.parseSince(since);
+            Instant cutoff;
+            boolean sinceApplied;
+            if (sinceInstant != null) {
+                cutoff = sinceInstant;
+                sinceApplied = true;
+                if (window == null || window.isBlank()) {
+                    window = null;
+                }
+            } else {
+                if (window == null || window.isBlank()) {
+                    window = "15m";
+                }
+                cutoff = Instant.now().minus(parseWindow(window));
+                sinceApplied = false;
             }
-            Duration windowDuration = parseWindow(window);
-            Instant cutoff = Instant.now().minus(windowDuration);
 
             Path path = support.pathGuard().resolveAllowed(pathArg);
             if (!Files.isRegularFile(path)) {
@@ -223,7 +252,7 @@ public final class LogTools {
                         truncated = true;
                         break;
                     }
-                    Instant lineTs = tryParseLeadingTimestamp(line);
+                    Instant lineTs = LogTimestampParser.parseLineTimestamp(line);
                     if (lineTs != null && lineTs.isBefore(cutoff)) {
                         continue;
                     }
@@ -252,6 +281,8 @@ public final class LogTools {
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("path", path.toString());
             data.put("window", window);
+            data.put("since", since);
+            data.put("sinceApplied", sinceApplied);
             data.put("scannedLines", scanned);
             data.put("clusters", top);
             return ToolResult.of(data, truncated);
@@ -340,21 +371,67 @@ public final class LogTools {
         }
     }
 
-    private static Instant tryParseLeadingTimestamp(String line) {
-        // Best-effort ISO-8601 prefix
-        if (line.length() >= 20) {
-            String candidate = line.substring(0, Math.min(30, line.length()));
-            int t = candidate.indexOf('T');
-            if (t > 0) {
+    private List<Map<String, Object>> inferLogPathsFromCmdline(JavaProcessInfo info) {
+        String cmd = info.commandLine();
+        if (cmd == null || cmd.isBlank()) {
+            return List.of();
+        }
+        List<String> tokens = extractPathHints(cmd);
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (String hint : tokens) {
+            Path candidate = Paths.get(hint.trim()).toAbsolutePath().normalize();
+            if (!support.pathGuard().isUnderAllowed(candidate)) {
+                continue;
+            }
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("path", candidate.toString());
+            item.put("source", "cmdline");
+            item.put("exists", Files.exists(candidate));
+            if (Files.isRegularFile(candidate)) {
                 try {
-                    String iso = candidate.split("[\\s,]", 2)[0];
-                    return Instant.parse(iso.endsWith("Z") ? iso : iso);
-                } catch (Exception ignored) {
-                    // ignore
+                    item.put("sizeBytes", Files.size(candidate));
+                } catch (IOException ignored) {
+                    // skip
+                }
+            } else if (Files.isDirectory(candidate)) {
+                item.put("isDirectory", true);
+            }
+            out.add(item);
+        }
+        return out;
+    }
+
+    private static List<String> extractPathHints(String cmdline) {
+        List<String> hints = new ArrayList<>();
+        String[] keys = {
+                "-Dlogging.path=", "-Dlogging.file.name=", "-Dlogging.file.path=",
+                "-DLOG_FILE=", "-Dcatalina.base=", "-Dcatalina.home=",
+                "--logging.path=", "--logging.file.path="
+        };
+        for (String key : keys) {
+            int idx = 0;
+            while ((idx = cmdline.indexOf(key, idx)) >= 0) {
+                idx += key.length();
+                String rest = cmdline.substring(idx);
+                String value = readPropValue(rest);
+                if (!value.isBlank()) {
+                    hints.add(value);
                 }
             }
         }
-        return null;
+        return hints;
+    }
+
+    private static String readPropValue(String rest) {
+        if (rest.isEmpty()) {
+            return "";
+        }
+        if (rest.charAt(0) == '"') {
+            int end = rest.indexOf('"', 1);
+            return end > 0 ? rest.substring(1, end) : rest.substring(1);
+        }
+        int space = rest.indexOf(' ');
+        return space > 0 ? rest.substring(0, space) : rest;
     }
 
     private static String normalizeMessage(String message) {

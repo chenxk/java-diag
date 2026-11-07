@@ -20,11 +20,19 @@ class GatewayConfigTest {
     }
 
     @Test
-    void ignoresLegacyRegisterTokenFlag() {
+    void parsesRegisterTokenFromCli() {
         GatewayConfig config = GatewayConfig.from(
                 Map.of(),
-                List.of("--register-token", "ignored", "--token", "agent"));
+                List.of("--register-token", "reg-secret", "--token", "agent"));
         assertEquals("agent", config.authToken().orElseThrow());
-        assertTrue(config.authToken().isPresent());
+        assertEquals("reg-secret", config.registryRegisterToken().orElseThrow());
+    }
+
+    @Test
+    void parsesRegisterTokenFromEnv() {
+        GatewayConfig config = GatewayConfig.from(
+                Map.of(GatewayConfig.ENV_REGISTRY_REGISTER_TOKEN, "env-reg"),
+                List.of());
+        assertEquals("env-reg", config.registryRegisterToken().orElseThrow());
     }
 }

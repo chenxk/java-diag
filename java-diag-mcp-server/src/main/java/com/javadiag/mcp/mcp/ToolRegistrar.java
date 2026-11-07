@@ -92,7 +92,8 @@ public final class ToolRegistrar {
 
         Map<String, Object> clusterProps = new LinkedHashMap<>();
         clusterProps.put("path", SchemaUtil.stringProp("Absolute log path under whitelist"));
-        clusterProps.put("window", SchemaUtil.stringProp("Time window e.g. 15m"));
+        clusterProps.put("window", SchemaUtil.stringProp("Time window e.g. 15m (ignored if since set)"));
+        clusterProps.put("since", SchemaUtil.stringProp("Optional absolute cutoff time (overrides window)"));
         specs.add(tool(LogTools.CLUSTER_ERRORS, "Cluster exception class names in a log window",
                 SchemaUtil.object(clusterProps, List.of("path")), a -> logTools.clusterErrors(a)));
 
@@ -120,6 +121,19 @@ public final class ToolRegistrar {
         histoProps.put("live", SchemaUtil.booleanProp("If true, may force full GC (disabled by default)"));
         specs.add(tool(JvmTools.GC_HISTO, "Class histogram via jcmd GC.class_histogram (default no full GC)",
                 SchemaUtil.object(histoProps, List.of("pid")), a -> jvmTools.gcHisto(a)));
+
+        Map<String, Object> heapProps = new LinkedHashMap<>(pidProps);
+        heapProps.put("path", SchemaUtil.stringProp("Output .hprof path under allowedLogDirs"));
+        specs.add(tool(JvmTools.HEAP_DUMP, "Write heap dump via jcmd GC.heap_dump (dangerous; gated)",
+                SchemaUtil.object(heapProps, List.of("pid", "path")), a -> jvmTools.heapDump(a)));
+
+        Map<String, Object> cpuProps = new LinkedHashMap<>(pidProps);
+        cpuProps.put("pauseMs", SchemaUtil.integerProp("Pause between thread snapshots (100-5000 ms)"));
+        specs.add(tool(JvmTools.CPU_SAMPLE, "Two thread snapshots with delta summary (no async-profiler)",
+                SchemaUtil.object(cpuProps, List.of("pid")), a -> jvmTools.cpuSample(a)));
+
+        specs.add(tool(JvmTools.VM_INFO, "Read-only VM.info + Compiler.codeheap_analytics",
+                SchemaUtil.object(new LinkedHashMap<>(pidProps), List.of("pid")), a -> jvmTools.vmInfo(a)));
 
         return specs;
     }

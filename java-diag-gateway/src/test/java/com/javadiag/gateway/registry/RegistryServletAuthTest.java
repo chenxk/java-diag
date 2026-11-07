@@ -92,12 +92,48 @@ class RegistryServletAuthTest {
         assertTrue(registry.get("10.0.1.11:8765").isPresent());
     }
 
+    @Test
+    void requiresRegisterTokenWhenConfigured() throws Exception {
+        jetty.stop();
+        JsonSupport json = JsonSupport.createDefault();
+        jetty = new Server();
+        ServerConnector connector = new ServerConnector(jetty);
+        connector.setHost("127.0.0.1");
+        connector.setPort(0);
+        jetty.addConnector(connector);
+        ServletContextHandler context = new ServletContextHandler();
+        context.setContextPath("/");
+        context.addServlet(
+                new ServletHolder(new RegistryServlet(registry, json, java.util.Optional.of("reg-secret"))),
+                "/registry/*");
+        jetty.setHandler(context);
+        jetty.start();
+        port = connector.getLocalPort();
+
+        HttpResponse<String> denied = post("/registry/register", """
+                {"instanceId":"x","mcpBaseUrl":"http://127.0.0.1:8765"}
+                """, null);
+        assertEquals(401, denied.statusCode());
+
+        HttpResponse<String> ok = post("/registry/register", """
+                {"instanceId":"x","mcpBaseUrl":"http://127.0.0.1:8765"}
+                """, "reg-secret");
+        assertEquals(200, ok.statusCode());
+        assertEquals(1, registry.size());
+    }
+
     private HttpResponse<String> post(String path, String body) throws Exception {
-        HttpRequest request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
+        return post(path, body, null);
+    }
+
+    private HttpResponse<String> post(String path, String body, String registryToken) throws Exception {
+        HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
                 .timeout(Duration.ofSeconds(5))
                 .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(body))
-                .build();
-        return HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+                .POST(HttpRequest.BodyPublishers.ofString(body));
+        if (registryToken != null) {
+            builder.header("Authorization", "Bearer " + registryToken);
+        }
+        return HttpClient.newHttpClient().send(builder.build(), HttpResponse.BodyHandlers.ofString());
     }
 }

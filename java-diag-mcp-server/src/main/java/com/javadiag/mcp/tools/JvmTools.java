@@ -8,6 +8,8 @@ import com.javadiag.mcp.platform.OsPlatform;
 import com.javadiag.mcp.platform.ProcessRunner;
 import com.javadiag.mcp.tools.ToolSupport.ToolResult;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -22,6 +24,9 @@ public final class JvmTools {
     public static final String THREAD_DUMP = "diag.thread_dump";
     public static final String VM_FLAGS = "diag.vm_flags";
     public static final String GC_HISTO = "diag.gc_histo";
+    public static final String HEAP_DUMP = "diag.heap_dump";
+    public static final String CPU_SAMPLE = "diag.cpu_sample";
+    public static final String VM_INFO = "diag.vm_info";
 
     private static final Set<String> JSTAT_OPTIONS = Set.of(
             "gc", "gccapacity", "gccause", "gcnew", "gcold", "gcutil", "class", "compiler");
@@ -42,7 +47,7 @@ public final class JvmTools {
                     Long.toString(pid),
                     "VM.summary");
             CommandResult result = support.processRunner().run(cmd, support.config().toolTimeoutMs());
-            Map<String, Object> parsed = parseVmSummary(result.stdout());
+            Map<String, Object> parsed = enrichVmSummary(parseVmSummary(result.stdout()), result.stdout());
 
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("pid", pid);
@@ -88,11 +93,13 @@ public final class JvmTools {
             }
 
             CommandResult result = support.processRunner().run(cmd, support.config().toolTimeoutMs());
+            String output = truncate(result.combinedOutput(), support.config().maxOutputBytes());
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("pid", pid);
             data.put("option", option);
             data.put("exitCode", result.exitCode());
-            data.put("output", truncate(result.combinedOutput(), support.config().maxOutputBytes()));
+            data.put("output", output);
+            data.put("summary", JvmOutputParser.parseJstatGcUtil(output, option));
             return ToolResult.of(data, result.truncated());
         });
     }
@@ -131,6 +138,7 @@ public final class JvmTools {
             data.put("method", method);
             data.put("jdkMajor", tc.majorVersion());
             data.put("dump", output);
+            data.put("summary", JvmOutputParser.parseThreadDumpSummary(output));
             return ToolResult.of(data, truncated);
         });
     }
@@ -188,6 +196,123 @@ public final class JvmTools {
             data.put("note", live ? "forced GC.run before histogram" : "default histo without forced full GC");
             return ToolResult.of(data, result.truncated());
         });
+    }
+
+    public ToolEnvelopeHolder heapDump(Map<String, Object> args) {
+        return wrap(HEAP_DUMP, args, a -> {
+            if (!support.config().dangerousToolsEnabled()) {
+                throw new DiagException(
+                        ErrorCode.TOOL_DISABLED,
+                        "heap dump disabled; enable JAVA_DIAG_DANGEROUS_TOOLS_ENABLED=true");
+            }
+            long pid = support.requirePid(a);
+            String pathArg = support.optString(a, "path");
+            if (pathArg == null || pathArg.isBlank()) {
+                throw new DiagException(ErrorCode.INVALID_ARGUMENT, "path is required (under allowedLogDirs)");
+            }
+            Path out = support.pathGuard().resolveAllowed(pathArg);
+            if (out.getFileName() == null || !out.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".hprof")) {
+                throw new DiagException(ErrorCode.INVALID_ARGUMENT, "path must end with .hprof");
+            }
+            Path parent = out.getParent();
+            if (parent != null) {
+                try {
+                    Files.createDirectories(parent);
+                } catch (java.io.IOException ex) {
+                    throw new DiagException(ErrorCode.INTERNAL, "cannot create output dir: " + ex.getMessage(), ex);
+                }
+            }
+            JdkToolchain.Toolchain tc = support.jdkToolchain().resolveForPid(pid);
+            String abs = out.toAbsolutePath().normalize().toString();
+            CommandResult result = support.processRunner().run(
+                    List.of(tc.jcmd().toString(), Long.toString(pid), "GC.heap_dump", abs),
+                    support.config().dumpTimeoutMs());
+            if (result.exitCode() != 0) {
+                throw new DiagException(
+                        ErrorCode.INTERNAL,
+                        "GC.heap_dump failed: " + result.combinedOutput());
+            }
+            long size = 0;
+            try {
+                size = Files.size(out);
+            } catch (java.io.IOException ignored) {
+                // best effort
+            }
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("pid", pid);
+            data.put("path", abs);
+            data.put("sizeBytes", size);
+            data.put("exitCode", result.exitCode());
+            data.put("note", "heap file written on probe host; not embedded in MCP response");
+            return ToolResult.of(data, result.truncated());
+        });
+    }
+
+    public ToolEnvelopeHolder cpuSample(Map<String, Object> args) {
+        return wrap(CPU_SAMPLE, args, a -> {
+            long pid = support.requirePid(a);
+            int pauseMs = support.optInt(a, "pauseMs", 500, 100, 5_000);
+            String first = captureThreadDump(pid);
+            try {
+                Thread.sleep(pauseMs);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                throw new DiagException(ErrorCode.INTERNAL, "cpu_sample interrupted");
+            }
+            String second = captureThreadDump(pid);
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("pid", pid);
+            data.put("pauseMs", pauseMs);
+            data.put("beforeSummary", JvmOutputParser.parseThreadDumpSummary(first));
+            data.put("afterSummary", JvmOutputParser.parseThreadDumpSummary(second));
+            data.put("delta", JvmOutputParser.compareThreadDumps(first, second));
+            data.put("beforeSnippet", truncate(first, Math.min(8192, support.config().maxOutputBytes())));
+            data.put("afterSnippet", truncate(second, Math.min(8192, support.config().maxOutputBytes())));
+            return ToolResult.of(data, false);
+        });
+    }
+
+    public ToolEnvelopeHolder vmInfo(Map<String, Object> args) {
+        return wrap(VM_INFO, args, a -> {
+            long pid = support.requirePid(a);
+            JdkToolchain.Toolchain tc = support.jdkToolchain().resolveForPid(pid);
+            CommandResult info = support.processRunner().run(
+                    List.of(tc.jcmd().toString(), Long.toString(pid), "VM.info"),
+                    support.config().toolTimeoutMs());
+            CommandResult codeHeap = support.processRunner().run(
+                    List.of(tc.jcmd().toString(), Long.toString(pid), "Compiler.codeheap_analytics"),
+                    support.config().toolTimeoutMs());
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("pid", pid);
+            data.put("vmInfo", truncate(info.stdout(), support.config().maxOutputBytes()));
+            data.put("codeHeapAnalytics", truncate(codeHeap.stdout(), support.config().maxOutputBytes()));
+            data.put("exitCodes", Map.of("vmInfo", info.exitCode(), "codeHeap", codeHeap.exitCode()));
+            return ToolResult.of(data, info.truncated() || codeHeap.truncated());
+        });
+    }
+
+    private String captureThreadDump(long pid) {
+        JdkToolchain.Toolchain tc = support.jdkToolchain().resolveForPid(pid);
+        CommandResult result;
+        if (support.jdkToolchain().preferJcmd(tc)) {
+            result = support.processRunner().run(
+                    List.of(tc.jcmd().toString(), Long.toString(pid), "Thread.print"),
+                    support.config().dumpTimeoutMs());
+        } else if (OsPlatform.isRunnable(tc.jstack())) {
+            result = support.processRunner().run(
+                    List.of(tc.jstack().toString(), Long.toString(pid)),
+                    support.config().dumpTimeoutMs());
+        } else {
+            throw new DiagException(ErrorCode.INTERNAL, "neither jcmd nor jstack available");
+        }
+        if (result.exitCode() != 0) {
+            throw new DiagException(ErrorCode.INTERNAL, "thread capture failed: " + result.combinedOutput());
+        }
+        return result.combinedOutput();
+    }
+
+    private static Map<String, Object> enrichVmSummary(Map<String, Object> base, String raw) {
+        return JvmOutputParser.enrichVmSummary(base, raw);
     }
 
     private static Map<String, Object> parseVmSummary(String raw) {

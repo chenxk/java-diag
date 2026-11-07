@@ -2,6 +2,8 @@ package com.javadiag.gateway.mcp;
 
 import com.javadiag.gateway.config.GatewayConfig;
 import com.javadiag.gateway.json.JsonSupport;
+import com.javadiag.gateway.platform.GatewayAuditLogger;
+import com.javadiag.gateway.platform.GatewayRateLimiter;
 import com.javadiag.gateway.proxy.ProbeMcpClient;
 import com.javadiag.gateway.registry.InMemoryRegistry;
 import com.javadiag.gateway.registry.ProbeInstance;
@@ -32,13 +34,18 @@ public final class GatewayToolRegistrar {
             "diag.jstat",
             "diag.thread_dump",
             "diag.vm_flags",
-            "diag.gc_histo");
+            "diag.gc_histo",
+            "diag.heap_dump",
+            "diag.cpu_sample",
+            "diag.vm_info");
 
     private final GatewayConfig config;
     private final InMemoryRegistry registry;
     private final TargetSelector selector;
     private final ProbeMcpClient probeClient;
     private final JsonSupport json;
+    private final GatewayAuditLogger auditLogger;
+    private final GatewayRateLimiter rateLimiter;
 
     public GatewayToolRegistrar(GatewayConfig config, InMemoryRegistry registry, JsonSupport json) {
         this.config = config;
@@ -46,6 +53,8 @@ public final class GatewayToolRegistrar {
         this.selector = new TargetSelector(registry);
         this.probeClient = new ProbeMcpClient(json, Duration.ofSeconds(60));
         this.json = json;
+        this.auditLogger = new GatewayAuditLogger(config.auditPath(), json);
+        this.rateLimiter = new GatewayRateLimiter(config.dumpCooldownMs());
     }
 
     public List<McpServerFeatures.SyncToolSpecification> specifications() {
@@ -109,16 +118,21 @@ public final class GatewayToolRegistrar {
     }
 
     private McpSchema.CallToolResult proxyTool(String toolName, Map<String, Object> args) {
+        long start = System.currentTimeMillis();
         Map<String, Object> safeArgs = args == null ? Map.of() : args;
         TargetSelector.Result resolved = selector.resolve(safeArgs);
         return switch (resolved.outcome()) {
-            case NONE -> envelopeResult(
-                    toolName,
-                    false,
-                    null,
-                    Map.of("code", "INSTANCE_NOT_FOUND", "message", "no healthy probe matched target"),
-                    false);
+            case NONE -> {
+                auditProxy(toolName, "", "", safeArgs, start, false, "INSTANCE_NOT_FOUND");
+                yield envelopeResult(
+                        toolName,
+                        false,
+                        null,
+                        Map.of("code", "INSTANCE_NOT_FOUND", "message", "no healthy probe matched target"),
+                        false);
+            }
             case MANY -> {
+                auditProxy(toolName, "", "", safeArgs, start, true, null);
                 Map<String, Object> data = new LinkedHashMap<>();
                 data.put("message", "multiple probes matched; choose instanceId (host:port) or mcpBaseUrl and retry");
                 data.put("candidates", resolved.candidates().stream()
@@ -128,15 +142,87 @@ public final class GatewayToolRegistrar {
             }
             case SINGLE -> {
                 ProbeInstance probe = resolved.candidates().get(0);
+                if (!rateLimiter.tryAcquire(probe.instanceId(), toolName)) {
+                    long retryMs = rateLimiter.retryAfterMs(probe.instanceId(), toolName);
+                    auditProxy(toolName, probe.instanceId(), probe.mcpBaseUrl(), safeArgs, start, false, "RATE_LIMITED");
+                    yield envelopeResult(
+                            toolName,
+                            false,
+                            null,
+                            Map.of(
+                                    "code",
+                                    "RATE_LIMITED",
+                                    "message",
+                                    "proxy cooldown for " + toolName + " on " + probe.instanceId()
+                                            + "; retry after ~" + retryMs + "ms"),
+                            false);
+                }
                 Map<String, Object> forwardArgs = TargetSelector.stripTarget(safeArgs);
-                Map<String, Object> probeEnvelope = probeClient.callTool(probe, toolName, forwardArgs);
+                String errorCode = null;
+                boolean success;
+                Map<String, Object> probeEnvelope;
+                try {
+                    probeEnvelope = probeClient.callTool(probe, toolName, forwardArgs);
+                    success = !Boolean.FALSE.equals(probeEnvelope.get("ok"));
+                    if (!success && probeEnvelope.get("error") instanceof Map<?, ?> err) {
+                        Object code = err.get("code");
+                        if (code != null) {
+                            errorCode = code.toString();
+                        }
+                    }
+                } catch (Exception ex) {
+                    success = false;
+                    errorCode = "INTERNAL";
+                    probeEnvelope = envelopeAsMap(
+                            toolName,
+                            false,
+                            null,
+                            Map.of("code", "INTERNAL", "message", ex.getMessage()),
+                            false);
+                }
+                auditProxy(toolName, probe.instanceId(), probe.mcpBaseUrl(), forwardArgs, start, success, errorCode);
                 yield McpSchema.CallToolResult.builder()
                         .addTextContent(json.toJson(probeEnvelope))
                         .structuredContent(probeEnvelope)
-                        .isError(Boolean.FALSE.equals(probeEnvelope.get("ok")))
+                        .isError(!success)
                         .build();
             }
         };
+    }
+
+    private void auditProxy(
+            String tool,
+            String targetInstance,
+            String mcpBaseUrl,
+            Map<String, Object> args,
+            long startEpochMs,
+            boolean success,
+            String errorCode) {
+        auditLogger.record(
+                tool,
+                targetInstance,
+                mcpBaseUrl,
+                args,
+                System.currentTimeMillis() - startEpochMs,
+                success,
+                errorCode);
+    }
+
+    private Map<String, Object> envelopeAsMap(
+            String tool,
+            boolean ok,
+            Object data,
+            Map<String, String> error,
+            boolean truncated) {
+        Map<String, Object> envelope = new LinkedHashMap<>();
+        envelope.put("ok", ok);
+        envelope.put("tool", tool);
+        envelope.put("instanceId", config.instanceId());
+        envelope.put("tookMs", 0);
+        envelope.put("truncated", truncated);
+        envelope.put("data", data);
+        envelope.put("error", error);
+        return envelope;
     }
 
     private McpSchema.CallToolResult envelopeResult(
