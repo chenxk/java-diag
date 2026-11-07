@@ -156,6 +156,7 @@ export JAVA_DIAG_HEARTBEAT_TTL_SECONDS=90
 export JAVA_DIAG_INSTANCE_ID=gw-1
 java -jar java-diag-gateway.jar \
   --host 0.0.0.0 --port 8787 --token agent-secret
+  --admin-user admin --register-token reg-secret
 
 # 等价 CLI
 java -jar java-diag-gateway.jar \
