@@ -104,36 +104,45 @@ class DiagConfigTransportTest {
     }
 
     @Test
-    void instanceIdDefaultsToPrimaryIpWhenUnset() {
+    void instanceIdDerivedFromAdvertiseUrl() {
+        DiagConfig config = DiagConfig.fromEnvironment(
+                Map.of(),
+                List.of("--advertise-url", "http://10.0.1.11:8765"));
+        assertEquals("10.0.1.11:8765", config.instanceId());
+    }
+
+    @Test
+    void instanceIdDerivedFromHostPortWhenNoAdvertiseUrl() {
+        DiagConfig config = DiagConfig.fromEnvironment(
+                Map.of(),
+                List.of("--host", "192.168.1.5", "--port", "9001"));
+        assertEquals("192.168.1.5:9001", config.instanceId());
+    }
+
+    @Test
+    void instanceIdUsesPrimaryIpAndPortWhenBoundAllInterfaces() {
         DiagConfig config = DiagConfig.fromEnvironment(Map.of(), List.of());
-        assertEquals(DiagConfig.primaryIpAddress(), config.instanceId());
-        assertTrue(looksLikeIp(config.instanceId()),
-                "default instanceId should be an IP, got: " + config.instanceId());
+        assertEquals(DiagConfig.primaryIpAddress() + ":8765", config.instanceId());
     }
 
     @Test
-    void instanceIdFromCliOverridesDefault() {
+    void instanceIdEnvAndCliRemoved_ignoredAsUnknown() {
+        // JAVA_DIAG_INSTANCE_ID / --instance-id no longer exist; advertise URL wins.
+        DiagConfig config = DiagConfig.fromEnvironment(
+                Map.of("JAVA_DIAG_INSTANCE_ID", "should-be-ignored"),
+                List.of("--instance-id", "also-ignored", "--advertise-url", "http://10.0.1.11:8765"));
+        assertEquals("10.0.1.11:8765", config.instanceId());
+    }
+
+    @Test
+    void registerUrlWorksWithoutSeparateInstanceId() {
         DiagConfig config = DiagConfig.fromEnvironment(
                 Map.of(),
-                List.of("--instance-id", "order-1"));
-        assertEquals("order-1", config.instanceId());
-    }
-
-    @Test
-    void instanceIdFromEnvOverridesDefault() {
-        DiagConfig config = DiagConfig.fromEnvironment(
-                Map.of(DiagConfig.ENV_INSTANCE_ID, "from-env"),
-                List.of());
-        assertEquals("from-env", config.instanceId());
-    }
-
-    @Test
-    void registerUrlWorksWithoutInstanceId() {
-        DiagConfig config = DiagConfig.fromEnvironment(
-                Map.of(),
-                List.of("--register-url", "http://gateway:8787"));
+                List.of(
+                        "--register-url", "http://gateway:8787",
+                        "--advertise-url", "http://10.0.1.11:8765"));
         assertEquals("http://gateway:8787", config.registerUrl().orElseThrow());
-        assertEquals(DiagConfig.primaryIpAddress(), config.instanceId());
+        assertEquals("10.0.1.11:8765", config.instanceId());
         assertEquals(DiagConfig.primaryIpAddress(), config.serviceName());
     }
 

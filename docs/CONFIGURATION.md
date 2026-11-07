@@ -47,13 +47,15 @@ java -jar java-diag-gateway.jar --help
 
 | 名称 | 类型 | 默认值 | 含义 | 示例 |
 |------|------|--------|------|------|
-| `JAVA_DIAG_INSTANCE_ID` / `--instance-id` | string | 本机主网卡 IP（非 hostname；与 service-name 同一解析） | 探针实例 ID（注册与工具 envelope）；可选，未设置时默认主 IP | `--instance-id order-1` |
 | `JAVA_DIAG_SERVICE_NAME` / `--service-name` | string | 本机主网卡 IP（非 hostname） | 服务名（注册与 `diag.list_instances` 过滤）；可选，未设置时默认主 IP | `--service-name order-service` |
+| （派生）`instanceId` | string | `{advertiseHost}:{port}` | **无独立 env/CLI**。由 `--advertise-url`（或 listen host + port / 主 IP）推导，与 Registry 的 `mcpBaseUrl` 一致；用于注册键、工具 envelope、`target.instanceId` | advertise `http://10.0.1.11:8765` → `10.0.1.11:8765` |
 | `JAVA_DIAG_TAGS` | string | 空 | 标签，逗号分隔 `key=value` | `JAVA_DIAG_TAGS=env=prod,az=a` |
 | `--tag` | `key=value`（可重复） | — | 追加/覆盖单个标签（CLI 优先合并） | `--tag env=prod --tag az=a` |
 | `JAVA_DIAG_REGISTER_URL` / `--register-url` | URL | 空 | Gateway 根地址；设置后启用心跳注册。**Registry 无共享密钥**（信任内网） | `--register-url http://gateway:8787` |
-| `JAVA_DIAG_ADVERTISE_URL` / `--advertise-url` | URL | 空则推算 `http://{host}:{port}` | 注册到 Gateway 的对外可达 base URL | `--advertise-url http://10.0.1.11:8765` |
+| `JAVA_DIAG_ADVERTISE_URL` / `--advertise-url` | URL | 空则推算 `http://{host}:{port}` | 注册到 Gateway 的对外可达 base URL；同时决定实例身份 | `--advertise-url http://10.0.1.11:8765` |
 | `JAVA_DIAG_HEARTBEAT_INTERVAL_SECONDS` / `--heartbeat-interval-seconds` | long（秒） | `20` | 心跳间隔；运行时会 `max(5, value)` | `--heartbeat-interval-seconds 15` |
+
+> 已移除探针 `JAVA_DIAG_INSTANCE_ID` / `--instance-id`。不要再单独配置 instance-id；Registry 已有 `mcpBaseUrl`/host。
 
 ### 1.4 其它 CLI
 
@@ -70,14 +72,14 @@ export JAVA_DIAG_ALLOWED_LOG_DIRS=/var/log/app
 export JAVA_DIAG_AUDIT_PATH=/var/log/java-diag-audit.log
 java -jar java-diag-mcp-server.jar --host 0.0.0.0 --port 8765 --token probe-secret
 
-# 注册到 Gateway（--service-name / --instance-id 均可选；省略则默认本机主 IP）
+# 注册到 Gateway（--service-name 可选，默认主 IP；实例身份 = advertise host:port）
 java -jar java-diag-mcp-server.jar \
   --port 8765 --token probe-secret \
-  --service-name order-service --instance-id order-1 --tag env=prod \
+  --service-name order-service --tag env=prod \
   --register-url http://gateway-host:8787 \
   --advertise-url http://10.0.1.11:8765
 
-# 同上，省略 --service-name 与 --instance-id（均为主 IP）
+# 同上，省略 --service-name（默认主 IP）；instanceId 仍为 10.0.1.11:8765
 java -jar java-diag-mcp-server.jar \
   --port 8765 --token probe-secret \
   --register-url http://gateway-host:8787 \
@@ -107,7 +109,7 @@ Agent→Gateway 用 Bearer token；`/registry/*` 与 `/health` **不做**共享�
 | 名称 | 类型 | 默认值 | 含义 | 示例 |
 |------|------|--------|------|------|
 | `JAVA_DIAG_HEARTBEAT_TTL_SECONDS` / `--heartbeat-ttl-seconds` | long（秒） | `90` | 探针心跳 TTL；必须 `>= 5`；超时未心跳则实例过期/不可路由 | `--heartbeat-ttl-seconds 90` |
-| `JAVA_DIAG_INSTANCE_ID` | string | `gateway-{pid}` | Gateway 自身 instanceId（工具 envelope）；**仅环境变量，无 CLI** | `JAVA_DIAG_INSTANCE_ID=gw-1` |
+| `JAVA_DIAG_INSTANCE_ID` | string | `gateway-{pid}` | **仅 Gateway 自身**工具 envelope 标识；**不是**探针注册键。探针身份来自 advertise/`mcpBaseUrl` | `JAVA_DIAG_INSTANCE_ID=gw-1` |
 
 > 探针心跳间隔应明显小于 Gateway TTL（例如探针 `20s`、Gateway TTL `90s`）。
 
@@ -156,13 +158,13 @@ java -jar java-diag-gateway.jar \
 
 ### Probe
 
-`JAVA_DIAG_TRANSPORT` · `JAVA_DIAG_HTTP_HOST` · `JAVA_DIAG_HTTP_PORT` · `JAVA_DIAG_AUTH_TOKEN` · `JAVA_DIAG_ALLOWED_LOG_DIRS` · `JAVA_DIAG_ALLOWED_MAIN_CLASS_REGEX` · `JAVA_DIAG_TOOL_TIMEOUT_MS` · `JAVA_DIAG_MAX_OUTPUT_BYTES` · `JAVA_DIAG_DANGEROUS_TOOLS_ENABLED` · `JAVA_DIAG_AUDIT_PATH` · `JAVA_DIAG_INSTANCE_ID` · `JAVA_DIAG_SERVICE_NAME` · `JAVA_DIAG_TAGS` · `JAVA_DIAG_REGISTER_URL` · `JAVA_DIAG_ADVERTISE_URL` · `JAVA_DIAG_HEARTBEAT_INTERVAL_SECONDS`
+`JAVA_DIAG_TRANSPORT` · `JAVA_DIAG_HTTP_HOST` · `JAVA_DIAG_HTTP_PORT` · `JAVA_DIAG_AUTH_TOKEN` · `JAVA_DIAG_ALLOWED_LOG_DIRS` · `JAVA_DIAG_ALLOWED_MAIN_CLASS_REGEX` · `JAVA_DIAG_TOOL_TIMEOUT_MS` · `JAVA_DIAG_MAX_OUTPUT_BYTES` · `JAVA_DIAG_DANGEROUS_TOOLS_ENABLED` · `JAVA_DIAG_AUDIT_PATH` · `JAVA_DIAG_SERVICE_NAME` · `JAVA_DIAG_TAGS` · `JAVA_DIAG_REGISTER_URL` · `JAVA_DIAG_ADVERTISE_URL` · `JAVA_DIAG_HEARTBEAT_INTERVAL_SECONDS`
 
 ### Gateway
 
 `JAVA_DIAG_HTTP_HOST` · `JAVA_DIAG_HTTP_PORT` · `JAVA_DIAG_AUTH_TOKEN` · `JAVA_DIAG_HEARTBEAT_TTL_SECONDS` · `JAVA_DIAG_INSTANCE_ID`
 
-> Probe 与 Gateway 共用部分 env 名（`JAVA_DIAG_HTTP_*`、`JAVA_DIAG_AUTH_TOKEN`、`JAVA_DIAG_INSTANCE_ID`）。同机同进程环境勿混用未区分的值；分进程启动时各自设置即可。
+> Probe 与 Gateway 共用部分 env 名（`JAVA_DIAG_HTTP_*`、`JAVA_DIAG_AUTH_TOKEN`）。`JAVA_DIAG_INSTANCE_ID` **仅 Gateway**（自身 envelope）。探针无 instance-id env。分进程启动时各自设置即可。
 
 ---
 

@@ -43,6 +43,15 @@ class TargetSelectorTest {
     }
 
     @Test
+    void mcpBaseUrlSelectsSingle() {
+        registry.register(probeAt("10.0.1.11:8765", "order", "http://10.0.1.11:8765", Map.of("env", "prod")));
+        TargetSelector.Result result = selector.resolve(Map.of(
+                "target", Map.of("mcpBaseUrl", "http://10.0.1.11:8765")));
+        assertEquals(TargetSelector.Outcome.SINGLE, result.outcome());
+        assertEquals("10.0.1.11:8765", result.candidates().get(0).instanceId());
+    }
+
+    @Test
     void noneWhenMissing() {
         TargetSelector.Result result = selector.resolve(Map.of(
                 "target", Map.of("instanceId", "missing")));
@@ -72,9 +81,13 @@ class TargetSelectorTest {
     }
 
     private static ProbeInstance probe(String id, String service, Map<String, String> tags) {
+        return probeAt(id, service, "http://127.0.0.1:8765", tags);
+    }
+
+    private static ProbeInstance probeAt(String id, String service, String mcpBaseUrl, Map<String, String> tags) {
         return new ProbeInstance(
                 id, service, "127.0.0.1", 8765,
-                "http://127.0.0.1:8765", "/sse", "/mcp",
+                mcpBaseUrl, "/sse", "/mcp",
                 "tok", tags, "0.1.0", Instant.now(), ProbeStatus.HEALTHY);
     }
 }

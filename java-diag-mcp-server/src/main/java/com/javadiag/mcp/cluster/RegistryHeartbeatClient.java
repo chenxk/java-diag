@@ -89,13 +89,15 @@ public final class RegistryHeartbeatClient implements AutoCloseable {
     }
 
     private Map<String, Object> buildPayload() {
+        String host = advertiseHost();
+        int port = DiagConfig.resolveAdvertisePort(config.advertiseUrl(), config.httpPort());
         String base = config.advertiseUrl()
-                .orElseGet(() -> "http://" + advertiseHost() + ":" + config.httpPort());
+                .orElseGet(() -> "http://" + host + ":" + port);
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("instanceId", config.instanceId());
         body.put("serviceName", config.serviceName());
-        body.put("host", advertiseHost());
-        body.put("port", config.httpPort());
+        body.put("host", host);
+        body.put("port", port);
         body.put("mcpBaseUrl", trimSlash(base));
         body.put("ssePath", "/sse");
         body.put("mcpPath", "/mcp");
@@ -143,21 +145,7 @@ public final class RegistryHeartbeatClient implements AutoCloseable {
     }
 
     private String advertiseHost() {
-        if (config.advertiseUrl().isPresent()) {
-            try {
-                return URI.create(config.advertiseUrl().get()).getHost();
-            } catch (Exception ignored) {
-                // fall through
-            }
-        }
-        if (!"0.0.0.0".equals(config.httpHost()) && !config.httpHost().isBlank()) {
-            return config.httpHost();
-        }
-        try {
-            return java.net.InetAddress.getLocalHost().getHostAddress();
-        } catch (Exception ex) {
-            return "127.0.0.1";
-        }
+        return DiagConfig.resolveAdvertiseHost(config.advertiseUrl(), config.httpHost());
     }
 
     private static String trimSlash(String url) {

@@ -9,7 +9,8 @@ import java.util.Map;
 
 /**
  * Resolves {@code target} to zero, one, or many healthy probes.
- * Multi-match never auto-picks — Agent must choose instanceId.
+ * Multi-match never auto-picks — Agent must choose {@code instanceId}
+ * (advertise {@code host:port}) or {@code mcpBaseUrl}.
  */
 public final class TargetSelector {
 
@@ -49,6 +50,21 @@ public final class TargetSelector {
                     .orElseGet(() -> new Result(Outcome.NONE, List.of()));
         }
 
+        String mcpBaseUrl = stringVal(target.get("mcpBaseUrl"));
+        if (mcpBaseUrl != null) {
+            String normalized = trimSlash(mcpBaseUrl);
+            List<ProbeInstance> byUrl = registry.list(null, Map.of(), true).stream()
+                    .filter(p -> normalized.equalsIgnoreCase(trimSlash(p.mcpBaseUrl())))
+                    .toList();
+            if (byUrl.isEmpty()) {
+                return new Result(Outcome.NONE, List.of());
+            }
+            if (byUrl.size() == 1) {
+                return new Result(Outcome.SINGLE, byUrl);
+            }
+            return new Result(Outcome.MANY, byUrl);
+        }
+
         String serviceName = stringVal(target.get("serviceName"));
         Map<String, String> tags = castTags(target.get("tags"));
         List<ProbeInstance> matches = registry.list(serviceName, tags, true);
@@ -59,6 +75,13 @@ public final class TargetSelector {
             return new Result(Outcome.SINGLE, matches);
         }
         return new Result(Outcome.MANY, matches);
+    }
+
+    private static String trimSlash(String url) {
+        if (url.endsWith("/")) {
+            return url.substring(0, url.length() - 1);
+        }
+        return url;
     }
 
     public static Map<String, Object> stripTarget(Map<String, Object> args) {

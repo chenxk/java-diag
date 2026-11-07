@@ -63,12 +63,12 @@ Registry（`/registry/*`）无共享密钥：信任内网；Agent→Gateway 仍�
 
 ### 2) 启动探针并注册
 
-`--service-name` / `JAVA_DIAG_SERVICE_NAME` 与 `--instance-id` / `JAVA_DIAG_INSTANCE_ID` 均可选；未设置时均默认为本机主网卡 IP（非 hostname；同一解析）。
+`--service-name` / `JAVA_DIAG_SERVICE_NAME` 可选（默认本机主网卡 IP）。**无** `--instance-id`：实例身份由 `--advertise-url` 的 `host:port` 推导（与 Registry `mcpBaseUrl` 一致）。
 
 ```bash
 java -jar java-diag-mcp-server/target/java-diag-mcp-server.jar \
   --host 0.0.0.0 --port 8765 --token probe-secret \
-  --service-name order-service --instance-id order-1 --tag env=prod \
+  --service-name order-service --tag env=prod \
   --register-url http://gateway-host:8787 \
   --advertise-url http://10.0.1.11:8765
 ```
@@ -86,7 +86,7 @@ java -jar java-diag-mcp-server/target/java-diag-mcp-server.jar \
 }
 ```
 
-剧本：`diag.list_instances` → 多命中时看 `candidates` → 带 `target.instanceId` 再调 `diag.thread_dump` 等。  
+剧本：`diag.list_instances` → 多命中时看 `candidates` → 带 `target.instanceId`（advertise `host:port`）或 `target.mcpBaseUrl` 再调 `diag.thread_dump` 等。  
 **多副本不会静默选机。**
 
 ## 锁定决策（集群）

@@ -58,9 +58,15 @@ public final class GatewayToolRegistrar {
 
         Map<String, Object> targetProp = new LinkedHashMap<>();
         targetProp.put("type", "object");
-        targetProp.put("description", "Routing target: instanceId or serviceName+tags");
+        targetProp.put("description",
+                "Routing target: instanceId (advertise host:port), mcpBaseUrl, or serviceName+tags");
         Map<String, Object> targetFields = new LinkedHashMap<>();
-        targetFields.put("instanceId", Map.of("type", "string"));
+        targetFields.put("instanceId", Map.of(
+                "type", "string",
+                "description", "Probe identity = advertise host:port from mcpBaseUrl"));
+        targetFields.put("mcpBaseUrl", Map.of(
+                "type", "string",
+                "description", "Registered probe MCP base URL (alternative to instanceId)"));
         targetFields.put("serviceName", Map.of("type", "string"));
         targetFields.put("tags", Map.of("type", "object"));
         targetProp.put("properties", targetFields);
@@ -114,7 +120,7 @@ public final class GatewayToolRegistrar {
                     false);
             case MANY -> {
                 Map<String, Object> data = new LinkedHashMap<>();
-                data.put("message", "multiple probes matched; choose instanceId and retry");
+                data.put("message", "multiple probes matched; choose instanceId (host:port) or mcpBaseUrl and retry");
                 data.put("candidates", resolved.candidates().stream()
                         .map(ProbeInstance::toPublicMap)
                         .collect(Collectors.toList()));

@@ -3,6 +3,7 @@ package com.javadiag.mcp.config;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
+import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -27,7 +28,6 @@ public final class DiagConfig {
     public static final String ENV_MAX_OUTPUT_BYTES = "JAVA_DIAG_MAX_OUTPUT_BYTES";
     public static final String ENV_DANGEROUS_TOOLS = "JAVA_DIAG_DANGEROUS_TOOLS_ENABLED";
     public static final String ENV_AUDIT_PATH = "JAVA_DIAG_AUDIT_PATH";
-    public static final String ENV_INSTANCE_ID = "JAVA_DIAG_INSTANCE_ID";
     public static final String ENV_TRANSPORT = "JAVA_DIAG_TRANSPORT";
     public static final String ENV_HTTP_HOST = "JAVA_DIAG_HTTP_HOST";
     public static final String ENV_HTTP_PORT = "JAVA_DIAG_HTTP_PORT";
@@ -139,10 +139,6 @@ public final class DiagConfig {
                 .toAbsolutePath()
                 .normalize();
 
-        String instanceId = Optional.ofNullable(env.get(ENV_INSTANCE_ID))
-                .filter(s -> !s.isBlank())
-                .orElseGet(DiagConfig::primaryIpAddress);
-
         Transport transport = parseTransport(env.get(ENV_TRANSPORT), Transport.HTTP);
         String httpHost = Optional.ofNullable(env.get(ENV_HTTP_HOST))
                 .filter(s -> !s.isBlank())
@@ -163,7 +159,6 @@ public final class DiagConfig {
                 case "--host" -> httpHost = requireValue(cliArgs, ++i, arg);
                 case "--port" -> httpPort = Integer.parseInt(requireValue(cliArgs, ++i, arg));
                 case "--token", "--auth-token" -> authToken = Optional.of(requireValue(cliArgs, ++i, arg));
-                case "--instance-id" -> instanceId = requireValue(cliArgs, ++i, arg);
                 case "--service-name" -> serviceNameOpt = Optional.of(requireValue(cliArgs, ++i, arg));
                 case "--register-url" -> registerUrl = Optional.of(requireValue(cliArgs, ++i, arg));
                 case "--advertise-url" -> advertiseUrl = Optional.of(requireValue(cliArgs, ++i, arg));
@@ -189,6 +184,8 @@ public final class DiagConfig {
         }
 
         String serviceName = serviceNameOpt.orElseGet(DiagConfig::primaryIpAddress);
+        // Registry identity = advertise host:port (mcpBaseUrl); no separate instance-id env/CLI.
+        String instanceId = instanceIdFromAdvertise(advertiseUrl, httpHost, httpPort);
 
         return new DiagConfig(
                 dirs,
@@ -298,7 +295,7 @@ public final class DiagConfig {
     /**
      * Primary machine IP (not hostname). Prefers a non-loopback IPv4 from an up NIC;
      * falls back to {@link InetAddress#getLocalHost()} address, then {@code 127.0.0.1}.
-     * Used as the default for both {@code serviceName} and {@code instanceId} when unset.
+     * Used as the default for {@code serviceName} when unset.
      */
     static String primaryIpAddress() {
         try {
@@ -332,6 +329,48 @@ public final class DiagConfig {
         } catch (Exception ignored) {
             return "127.0.0.1";
         }
+    }
+
+    /**
+     * Registry / envelope instance identity derived from advertise URL (or listen host) + port.
+     * Format {@code host:port} — same host the registry stores in {@code mcpBaseUrl}.
+     */
+    public static String instanceIdFromAdvertise(Optional<String> advertiseUrl, String httpHost, int httpPort) {
+        return resolveAdvertiseHost(advertiseUrl, httpHost) + ":" + resolveAdvertisePort(advertiseUrl, httpPort);
+    }
+
+    /**
+     * Host advertised to the gateway (from {@code JAVA_DIAG_ADVERTISE_URL}, else bind host, else primary IP).
+     */
+    public static String resolveAdvertiseHost(Optional<String> advertiseUrl, String httpHost) {
+        if (advertiseUrl != null && advertiseUrl.isPresent()) {
+            try {
+                String host = URI.create(advertiseUrl.get()).getHost();
+                if (host != null && !host.isBlank()) {
+                    return host;
+                }
+            } catch (Exception ignored) {
+                // fall through
+            }
+        }
+        if (httpHost != null && !httpHost.isBlank() && !"0.0.0.0".equals(httpHost) && !"[::]".equals(httpHost)) {
+            return httpHost;
+        }
+        return primaryIpAddress();
+    }
+
+    public static int resolveAdvertisePort(Optional<String> advertiseUrl, int httpPort) {
+        if (advertiseUrl != null && advertiseUrl.isPresent()) {
+            try {
+                int port = URI.create(advertiseUrl.get()).getPort();
+                if (port > 0) {
+                    return port;
+                }
+            } catch (Exception ignored) {
+                // fall through
+            }
+        }
+        return httpPort;
     }
 
     public List<Path> allowedLogDirs() {
