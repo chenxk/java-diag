@@ -4,10 +4,10 @@ import com.javadiag.mcp.model.ErrorCode;
 import com.javadiag.mcp.platform.CommandResult;
 import com.javadiag.mcp.platform.DiagException;
 import com.javadiag.mcp.platform.JdkToolchain;
+import com.javadiag.mcp.platform.OsPlatform;
 import com.javadiag.mcp.platform.ProcessRunner;
 import com.javadiag.mcp.tools.ToolSupport.ToolResult;
 
-import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -74,7 +74,7 @@ public final class JvmTools {
             int count = support.optInt(a, "count", 1, 1, 20);
 
             JdkToolchain.Toolchain tc = support.jdkToolchain().resolveForPid(pid);
-            if (!Files.isExecutable(tc.jstat())) {
+            if (!OsPlatform.isRunnable(tc.jstat())) {
                 throw new DiagException(ErrorCode.INTERNAL, "jstat not executable: " + tc.jstat());
             }
 
@@ -110,7 +110,7 @@ public final class JvmTools {
                 result = support.processRunner().run(
                         List.of(tc.jcmd().toString(), Long.toString(pid), "Thread.print"),
                         support.config().dumpTimeoutMs());
-            } else if (Files.isExecutable(tc.jstack())) {
+            } else if (OsPlatform.isRunnable(tc.jstack())) {
                 method = "jstack";
                 result = support.processRunner().run(
                         List.of(tc.jstack().toString(), Long.toString(pid)),

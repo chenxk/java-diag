@@ -1,7 +1,11 @@
 package com.javadiag.mcp.process;
 
 import com.javadiag.mcp.model.ErrorCode;
+import com.javadiag.mcp.platform.CommandResult;
 import com.javadiag.mcp.platform.DiagException;
+import com.javadiag.mcp.platform.JdkToolchain;
+import com.javadiag.mcp.platform.OsPlatform;
+import com.javadiag.mcp.platform.ProcessRunner;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -9,25 +13,41 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
- * Discovers local Java processes via {@code /proc} (Linux).
+ * Discovers local Java processes on Windows, macOS, and Linux.
+ * <p>
+ * Strategy: Linux {@code /proc} when available; otherwise {@code jps -lvm};
+ * finally {@link ProcessHandle} as a last resort.
  */
 public final class JavaProcessService {
 
     private final Optional<Pattern> allowedMainClassRegex;
+    private final ProcessRunner processRunner;
+    private final JdkToolchain jdkToolchain;
 
     public JavaProcessService(Optional<Pattern> allowedMainClassRegex) {
+        this(allowedMainClassRegex, null, null);
+    }
+
+    public JavaProcessService(
+            Optional<Pattern> allowedMainClassRegex,
+            ProcessRunner processRunner,
+            JdkToolchain jdkToolchain) {
         this.allowedMainClassRegex = allowedMainClassRegex;
+        this.processRunner = processRunner;
+        this.jdkToolchain = jdkToolchain;
     }
 
     public List<JavaProcessInfo> listProcesses(String keyword, String userFilter) {
-        List<JavaProcessInfo> all = scanProc();
+        List<JavaProcessInfo> all = discoverAll();
         return all.stream()
                 .filter(p -> matchesKeyword(p, keyword))
                 .filter(p -> matchesUser(p, userFilter))
@@ -44,7 +64,7 @@ public final class JavaProcessService {
                     "at least one of mainClass, jar, or port is required");
         }
         List<JavaProcessInfo> matches = new ArrayList<>();
-        for (JavaProcessInfo info : scanProc()) {
+        for (JavaProcessInfo info : discoverAll()) {
             if (!matchesMainClassPolicy(info)) {
                 continue;
             }
@@ -68,23 +88,209 @@ public final class JavaProcessService {
     }
 
     public void requireAlive(long pid) {
-        if (!Files.exists(Path.of("/proc", Long.toString(pid)))) {
-            throw new DiagException(ErrorCode.PID_NOT_FOUND, "pid not found: " + pid);
-        }
-        Optional<JavaProcessInfo> info = readPid(pid);
-        if (info.isEmpty() || !isJavaProcess(info.get().commandLine())) {
-            // Still allow attach attempts for non-/proc-visible edge cases if /proc exists,
-            // but require java-like cmdline when readable.
-            if (info.isPresent() && !isJavaProcess(info.get().commandLine())) {
+        Optional<JavaProcessInfo> info = findByPid(pid);
+        if (info.isEmpty()) {
+            if (!isProcessAlive(pid)) {
+                throw new DiagException(ErrorCode.PID_NOT_FOUND, "pid not found: " + pid);
+            }
+            // Alive but not recognized as Java — still allow attach for edge cases where
+            // discovery missed it (permissions), unless we can positively prove non-Java.
+            Optional<String> cmd = ProcessHandle.of(pid).flatMap(h -> h.info().command());
+            if (cmd.isPresent() && !OsPlatform.looksLikeJavaBinary(cmd.get()) && !isJavaProcess(cmd.get())) {
                 throw new DiagException(ErrorCode.PID_NOT_FOUND, "pid is not a Java process: " + pid);
             }
-            if (info.isEmpty()) {
-                throw new DiagException(ErrorCode.PID_NOT_FOUND, "unable to read pid: " + pid);
-            }
+            return;
+        }
+        if (!isJavaProcess(info.get().commandLine())
+                && !isJavaMainToken(info.get().mainClassOrJar())
+                && !OsPlatform.looksLikeJavaBinary(info.get().commandLine())) {
+            throw new DiagException(ErrorCode.PID_NOT_FOUND, "pid is not a Java process: " + pid);
         }
         if (!matchesMainClassPolicy(info.get())) {
             throw new DiagException(ErrorCode.UNAUTHORIZED, "pid blocked by allowedMainClassRegex: " + pid);
         }
+    }
+
+    private List<JavaProcessInfo> discoverAll() {
+        if (OsPlatform.hasProcFs()) {
+            List<JavaProcessInfo> fromProc = scanProc();
+            if (!fromProc.isEmpty()) {
+                return fromProc;
+            }
+        }
+        List<JavaProcessInfo> fromJps = scanJps();
+        if (!fromJps.isEmpty()) {
+            return fromJps;
+        }
+        return scanProcessHandles();
+    }
+
+    private Optional<JavaProcessInfo> findByPid(long pid) {
+        for (JavaProcessInfo info : discoverAll()) {
+            if (info.pid() == pid) {
+                return Optional.of(info);
+            }
+        }
+        if (OsPlatform.hasProcFs()) {
+            return readPid(pid).filter(i -> isJavaProcess(i.commandLine()) || isJavaMainToken(i.mainClassOrJar()));
+        }
+        return Optional.empty();
+    }
+
+    private static boolean isProcessAlive(long pid) {
+        try {
+            return ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false);
+        } catch (Exception ex) {
+            return false;
+        }
+    }
+
+    private List<JavaProcessInfo> scanJps() {
+        if (processRunner == null || jdkToolchain == null) {
+            return List.of();
+        }
+        try {
+            JdkToolchain.Toolchain tc = jdkToolchain.resolveFallback();
+            if (!OsPlatform.isRunnable(tc.jps())) {
+                return List.of();
+            }
+            CommandResult result = processRunner.run(
+                    List.of(tc.jps().toString(), "-lvm"),
+                    Math.min(5_000L, processRunnerDefaultTimeout()));
+            if (result.exitCode() != 0 && (result.stdout() == null || result.stdout().isBlank())) {
+                // retry with simpler flags
+                result = processRunner.run(List.of(tc.jps().toString(), "-l"), 5_000L);
+            }
+            return parseJpsOutput(result.stdout());
+        } catch (Exception ex) {
+            return List.of();
+        }
+    }
+
+    private long processRunnerDefaultTimeout() {
+        // ProcessRunner doesn't expose default timeout; use a safe short bound for listing.
+        return 5_000L;
+    }
+
+    /**
+     * Parse {@code jps -l} / {@code jps -lvm} lines: {@code <pid> <main> [args...]}.
+     */
+    static List<JavaProcessInfo> parseJpsOutput(String stdout) {
+        List<JavaProcessInfo> result = new ArrayList<>();
+        if (stdout == null || stdout.isBlank()) {
+            return result;
+        }
+        Map<Long, JavaProcessInfo> byPid = new LinkedHashMap<>();
+        for (String line : stdout.split("\\R")) {
+            String trimmed = line.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            int sp = indexOfWhitespace(trimmed);
+            if (sp <= 0) {
+                continue;
+            }
+            long pid;
+            try {
+                pid = Long.parseLong(trimmed.substring(0, sp));
+            } catch (NumberFormatException ex) {
+                continue;
+            }
+            String rest = trimmed.substring(sp).trim();
+            String main;
+            String cmdline;
+            if (rest.isEmpty() || rest.equalsIgnoreCase(" -- process information unavailable")) {
+                main = "";
+                cmdline = "java";
+            } else {
+                int next = indexOfWhitespace(rest);
+                if (next < 0) {
+                    main = rest;
+                    cmdline = rest;
+                } else {
+                    main = rest.substring(0, next);
+                    cmdline = rest;
+                }
+            }
+            // Skip the jps tool itself
+            if (main.contains("sun.tools.jps") || main.contains("jdk.jcmd/sun.tools.jps")) {
+                continue;
+            }
+            Long start = ProcessHandle.of(pid)
+                    .flatMap(h -> h.info().startInstant())
+                    .map(i -> i.toEpochMilli())
+                    .orElse(null);
+            byPid.put(pid, new JavaProcessInfo(pid, main, main, null, start, null, cmdline));
+        }
+        result.addAll(byPid.values());
+        return result;
+    }
+
+    private static int indexOfWhitespace(String s) {
+        for (int i = 0; i < s.length(); i++) {
+            if (Character.isWhitespace(s.charAt(i))) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private List<JavaProcessInfo> scanProcessHandles() {
+        List<JavaProcessInfo> result = new ArrayList<>();
+        try {
+            ProcessHandle.allProcesses().forEach(handle -> {
+                try {
+                    if (!handle.isAlive()) {
+                        return;
+                    }
+                    ProcessHandle.Info info = handle.info();
+                    String command = info.command().orElse("");
+                    String[] args = info.arguments().orElse(new String[0]);
+                    String cmdline = info.commandLine().orElseGet(() -> joinCommand(command, args));
+                    if (!isJavaProcess(cmdline) && !OsPlatform.looksLikeJavaBinary(command)) {
+                        return;
+                    }
+                    String main = extractMain(cmdline);
+                    if (main.isBlank() && args.length > 0) {
+                        main = extractMain(joinCommand(command, args));
+                    }
+                    Long start = info.startInstant().map(i -> i.toEpochMilli()).orElse(null);
+                    String user = info.user().orElse(null);
+                    result.add(new JavaProcessInfo(
+                            handle.pid(),
+                            main,
+                            main.isBlank() ? command : main,
+                            user,
+                            start,
+                            null,
+                            cmdline.isBlank() ? command : cmdline));
+                } catch (Exception ignored) {
+                    // skip inaccessible processes
+                }
+            });
+        } catch (Exception ignored) {
+            // empty
+        }
+        return result;
+    }
+
+    private static String joinCommand(String command, String[] args) {
+        StringBuilder sb = new StringBuilder();
+        if (command != null && !command.isBlank()) {
+            sb.append(command);
+        }
+        if (args != null) {
+            for (String arg : args) {
+                if (arg == null) {
+                    continue;
+                }
+                if (!sb.isEmpty()) {
+                    sb.append(' ');
+                }
+                sb.append(arg);
+            }
+        }
+        return sb.toString();
     }
 
     private List<JavaProcessInfo> scanProc() {
@@ -163,11 +369,19 @@ public final class JavaProcessService {
                 continue;
             }
             String lower = part.toLowerCase(Locale.ROOT);
-            if (lower.endsWith("/java") || lower.equals("java") || lower.endsWith("\\java.exe")) {
+            if (lower.endsWith("/java")
+                    || lower.equals("java")
+                    || lower.endsWith("\\java")
+                    || lower.endsWith("/java.exe")
+                    || lower.endsWith("\\java.exe")
+                    || lower.equals("java.exe")
+                    || lower.endsWith("\\javaw.exe")
+                    || lower.equals("javaw.exe")
+                    || lower.endsWith("/javaw")
+                    || lower.equals("javaw")) {
                 continue;
             }
-            // skip module path style launcher tokens that look like paths to java binary already handled
-            if (!part.contains("/") && part.contains(".")) {
+            if (!part.contains("/") && !part.contains("\\") && part.contains(".")) {
                 return part;
             }
             if (lower.endsWith(".jar")) {
@@ -183,17 +397,56 @@ public final class JavaProcessService {
         return parts[0];
     }
 
-    private boolean isJavaProcess(String cmdline) {
+    static boolean isJavaProcess(String cmdline) {
         if (cmdline == null || cmdline.isBlank()) {
             return false;
         }
         String lower = cmdline.toLowerCase(Locale.ROOT);
+        if (OsPlatform.looksLikeJavaBinary(lower.split("\\s+")[0])) {
+            return true;
+        }
         return lower.contains("/java ")
+                || lower.contains("\\java ")
+                || lower.contains("/java.exe ")
+                || lower.contains("\\java.exe ")
                 || lower.startsWith("java ")
+                || lower.startsWith("java.exe ")
+                || lower.contains("/javaw.exe ")
+                || lower.contains("\\javaw.exe ")
                 || lower.contains("/java\0")
-                || Pattern.compile("(^|/)java(\\s|$)").matcher(lower).find()
+                || Pattern.compile("(^|[/\\\\])java(\\.exe)?(\\s|$)", Pattern.CASE_INSENSITIVE)
+                        .matcher(cmdline).find()
                 || lower.contains("org.apache.catalina")
                 || lower.contains("org.springframework.boot");
+    }
+
+    /**
+     * True for jps-style main tokens: {@code *.jar} or FQCN ({@code com.foo.Bar}).
+     * Rejects ordinary filenames like {@code server.py}.
+     */
+    static boolean isJavaMainToken(String main) {
+        if (main == null || main.isBlank()) {
+            return false;
+        }
+        String lower = main.toLowerCase(Locale.ROOT);
+        if (lower.endsWith(".jar")) {
+            return true;
+        }
+        if (main.indexOf('/') >= 0 || main.indexOf('\\') >= 0 || main.indexOf(' ') >= 0) {
+            return false;
+        }
+        if (!main.contains(".") || lower.contains("://")) {
+            return false;
+        }
+        int lastDot = main.lastIndexOf('.');
+        String simple = main.substring(lastDot + 1);
+        // File extensions are short and all-lowercase; Java simple class names usually aren't.
+        if (simple.length() <= 5
+                && simple.equals(simple.toLowerCase(Locale.ROOT))
+                && simple.chars().allMatch(Character::isLetter)) {
+            return false;
+        }
+        return main.matches("[\\w.$]+");
     }
 
     private String readUser(Path procDir) {
@@ -267,6 +520,14 @@ public final class JavaProcessService {
     }
 
     private boolean listensOnPort(long pid, int port) {
+        if (OsPlatform.hasProcFs()) {
+            return listensOnPortProc(pid, port);
+        }
+        // Non-Linux: best-effort via discovered cmdline only (caller also checks ":" + port).
+        return false;
+    }
+
+    private boolean listensOnPortProc(long pid, int port) {
         // Best-effort via /proc/net/tcp — match inode from fd
         try {
             Path fdDir = Path.of("/proc", Long.toString(pid), "fd");

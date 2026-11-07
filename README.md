@@ -4,6 +4,7 @@
 
 - **探针** `java-diag-mcp-server`：部署在业务机，HTTP MCP（也可 `--stdio`）
 - **网关** `java-diag-gateway`：集群入口 + 内置心跳注册；Agent 可只连 Gateway，也仍可直连探针
+- **平台**：Windows / macOS / Linux（进程发现：Linux 优先 `/proc`，其它平台走 `jps` / `ProcessHandle`）
 
 ## 构建
 

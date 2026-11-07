@@ -10,6 +10,7 @@ import java.util.Optional;
 
 /**
  * Resolves JDK diagnostic binaries, preferring the target process toolchain.
+ * Works on Windows, macOS, and Linux.
  */
 public final class JdkToolchain {
 
@@ -46,12 +47,13 @@ public final class JdkToolchain {
         Path jcmd = which("jcmd").orElseThrow(() ->
                 new DiagException(ErrorCode.INTERNAL, "jcmd not found on PATH or JAVA_HOME"));
         Path home = jcmd.getParent() == null ? Path.of(".") : jcmd.getParent().getParent();
+        Path bin = jcmd.getParent();
         return new Toolchain(
                 home,
                 jcmd,
-                which("jstack").orElse(jcmd.getParent().resolve("jstack")),
-                which("jstat").orElse(jcmd.getParent().resolve("jstat")),
-                which("jps").orElse(jcmd.getParent().resolve("jps")),
+                which("jstack").orElse(bin == null ? Path.of("jstack") : bin.resolve(OsPlatform.executableName("jstack"))),
+                which("jstat").orElse(bin == null ? Path.of("jstat") : bin.resolve(OsPlatform.executableName("jstat"))),
+                which("jps").orElse(bin == null ? Path.of("jps") : bin.resolve(OsPlatform.executableName("jps"))),
                 detectMajorVersion(home));
     }
 
@@ -68,30 +70,37 @@ public final class JdkToolchain {
             }
         }
         Path bin = home.resolve("bin");
-        Path jcmd = bin.resolve("jcmd");
-        if (!Files.isExecutable(jcmd)) {
+        Path jcmd = bin.resolve(OsPlatform.executableName("jcmd"));
+        if (!OsPlatform.isRunnable(jcmd)) {
             return Optional.empty();
         }
         return Optional.of(new Toolchain(
                 home,
                 jcmd,
-                bin.resolve("jstack"),
-                bin.resolve("jstat"),
-                bin.resolve("jps"),
+                bin.resolve(OsPlatform.executableName("jstack")),
+                bin.resolve(OsPlatform.executableName("jstat")),
+                bin.resolve(OsPlatform.executableName("jps")),
                 detectMajorVersion(home)));
     }
 
     public Optional<Path> findJavaHomeForPid(long pid) {
+        if (OsPlatform.hasProcFs()) {
+            Optional<Path> fromProc = findJavaHomeFromProc(pid);
+            if (fromProc.isPresent()) {
+                return fromProc;
+            }
+        }
+        return findJavaHomeFromProcessHandle(pid);
+    }
+
+    private Optional<Path> findJavaHomeFromProc(long pid) {
         Path exe = Path.of("/proc", Long.toString(pid), "exe");
         try {
             if (Files.exists(exe)) {
                 Path real = exe.toRealPath();
-                Path bin = real.getParent();
-                if (bin != null) {
-                    Path home = bin.getParent();
-                    if (home != null && Files.isDirectory(home.resolve("bin"))) {
-                        return Optional.of(home);
-                    }
+                Optional<Path> home = javaHomeFromJavaBinary(real);
+                if (home.isPresent()) {
+                    return home;
                 }
             }
         } catch (IOException ignored) {
@@ -114,6 +123,40 @@ public final class JdkToolchain {
             }
         } catch (IOException ignored) {
             // ignore
+        }
+        return Optional.empty();
+    }
+
+    private Optional<Path> findJavaHomeFromProcessHandle(long pid) {
+        try {
+            Optional<ProcessHandle> handle = ProcessHandle.of(pid);
+            if (handle.isEmpty()) {
+                return Optional.empty();
+            }
+            Optional<String> command = handle.get().info().command();
+            if (command.isPresent()) {
+                Optional<Path> home = javaHomeFromJavaBinary(Path.of(command.get()));
+                if (home.isPresent()) {
+                    return home;
+                }
+            }
+        } catch (Exception ignored) {
+            // ignore
+        }
+        return Optional.empty();
+    }
+
+    static Optional<Path> javaHomeFromJavaBinary(Path javaBinary) {
+        if (javaBinary == null) {
+            return Optional.empty();
+        }
+        Path bin = javaBinary.getParent();
+        if (bin == null) {
+            return Optional.empty();
+        }
+        Path home = bin.getParent();
+        if (home != null && Files.isDirectory(home.resolve("bin"))) {
+            return Optional.of(home);
         }
         return Optional.empty();
     }
@@ -163,18 +206,19 @@ public final class JdkToolchain {
         }
     }
 
-    private Optional<Path> which(String name) {
-        String pathEnv = System.getenv("PATH");
-        if (pathEnv == null) {
-            return Optional.empty();
-        }
-        for (String dir : pathEnv.split(":")) {
-            if (dir.isBlank()) {
-                continue;
-            }
-            Path candidate = Path.of(dir, name);
-            if (Files.isExecutable(candidate)) {
+    public Optional<Path> which(String name) {
+        String exeName = OsPlatform.executableName(name);
+        for (String dir : OsPlatform.pathEntries()) {
+            Path candidate = Path.of(dir, exeName);
+            if (OsPlatform.isRunnable(candidate)) {
                 return Optional.of(candidate);
+            }
+            // Also try bare name on Unix in case PATH entry is unusual
+            if (!exeName.equals(name)) {
+                Path bare = Path.of(dir, name);
+                if (OsPlatform.isRunnable(bare)) {
+                    return Optional.of(bare);
+                }
             }
         }
         return Optional.empty();
@@ -184,6 +228,6 @@ public final class JdkToolchain {
      * Prefer jcmd for modern JDKs; fall back to jstack when jcmd is missing.
      */
     public boolean preferJcmd(Toolchain toolchain) {
-        return toolchain.majorVersion() >= 8 && Files.isExecutable(toolchain.jcmd());
+        return toolchain.majorVersion() >= 8 && OsPlatform.isRunnable(toolchain.jcmd());
     }
 }

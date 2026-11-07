@@ -2,6 +2,8 @@ package com.javadiag.mcp.platform;
 
 import com.javadiag.mcp.model.ErrorCode;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
@@ -21,6 +23,7 @@ class ProcessRunnerTimeoutTest {
     Path tempDir;
 
     @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
     void timesOutAndTruncatesOutput() throws Exception {
         Path fakeJcmd = tempDir.resolve("jcmd");
         Files.writeString(fakeJcmd, """
@@ -59,4 +62,22 @@ class ProcessRunnerTimeoutTest {
         assertTrue(result.truncated());
         assertTrue(result.stdout().getBytes().length <= 64);
     }
+
+    @Test
+    @EnabledOnOs(OS.WINDOWS)
+    void timesOutOnWindowsUsingCmdScript() throws Exception {
+        Path fakeJcmd = tempDir.resolve("jcmd.cmd");
+        Files.writeString(fakeJcmd, """
+                @echo off
+                :loop
+                echo xxxxxxxxxxxxxxxxxxxx
+                ping -n 2 127.0.0.1 >nul
+                goto loop
+                """);
+        ProcessRunner runner = new ProcessRunner(64, 800);
+        DiagException ex = assertThrows(DiagException.class,
+                () -> runner.run(List.of(fakeJcmd.toString(), "1", "VM.version")));
+        assertEquals(ErrorCode.TIMEOUT, ex.code());
+    }
+
 }

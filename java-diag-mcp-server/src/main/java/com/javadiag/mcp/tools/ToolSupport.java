@@ -49,7 +49,8 @@ public final class ToolSupport {
         PathGuard pathGuard = new PathGuard(config.allowedLogDirs());
         ProcessRunner runner = new ProcessRunner(config.maxOutputBytes(), config.toolTimeoutMs());
         JdkToolchain toolchain = new JdkToolchain();
-        JavaProcessService processes = new JavaProcessService(config.allowedMainClassRegex());
+        JavaProcessService processes = new JavaProcessService(
+                config.allowedMainClassRegex(), runner, toolchain);
         AuditLogger audit = new AuditLogger(config.auditPath(), codec);
         return new ToolSupport(config, pathGuard, runner, toolchain, processes, audit, codec);
     }

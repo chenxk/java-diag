@@ -251,12 +251,7 @@ public final class DiagConfig {
     }
 
     private static List<Path> defaultAllowedDirs() {
-        List<Path> dirs = new ArrayList<>();
-        dirs.add(Paths.get(".").toAbsolutePath().normalize());
-        dirs.add(Paths.get(System.getProperty("user.home")).toAbsolutePath().normalize());
-        dirs.add(Paths.get("/tmp").toAbsolutePath().normalize());
-        dirs.add(Paths.get("/var/log").toAbsolutePath().normalize());
-        return dirs;
+        return new ArrayList<>(com.javadiag.mcp.platform.OsPlatform.defaultAllowedLogDirs());
     }
 
     private static List<Path> parseDirs(String raw) {

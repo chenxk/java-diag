@@ -13,6 +13,14 @@ Maven 父工程 + 两模块：
 
 `diag.ping` … `diag.gc_histo` — 已完成（只读、审计、白名单、超时截断）
 
+## 跨平台
+
+| 能力 | Linux | macOS | Windows |
+|------|-------|-------|---------|
+| 进程发现 | `/proc`，失败回退 `jps` / `ProcessHandle` | `jps` → `ProcessHandle` | `jps` → `ProcessHandle` |
+| JDK 工具 | `jcmd`/`jps`/… | 同左 | `*.exe` + `PATH` 用 `;` |
+| 默认日志白名单 | `.` / `$HOME` / tmp / `/var/log` | 同左 | `.` / `%USERPROFILE%` / `%TEMP%` |
+
 ## P1 集群 MVP
 
 | 项 | 状态 |

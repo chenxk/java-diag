@@ -33,7 +33,7 @@ java -jar java-diag-gateway.jar --help
 
 | 名称 | 类型 | 默认值 | 含义 | 示例 |
 |------|------|--------|------|------|
-| `JAVA_DIAG_ALLOWED_LOG_DIRS` | string（逗号分隔路径） | `.`、`$HOME`、`/tmp`、`/var/log`（均为绝对路径规范化后） | 日志读取白名单目录；未设置则用默认四项 | `JAVA_DIAG_ALLOWED_LOG_DIRS=/var/log/app,/data/logs` |
+| `JAVA_DIAG_ALLOWED_LOG_DIRS` | string（逗号分隔路径） | 跨平台默认：`.`、`$HOME`、`java.io.tmpdir`；Unix 另含 `/tmp`、`/var/log`（目录存在时） | 日志读取白名单目录；未设置则用上述默认 | `JAVA_DIAG_ALLOWED_LOG_DIRS=/var/log/app,/data/logs`（Windows 例：`C:\\logs,D:\\app\\logs`） |
 | `JAVA_DIAG_ALLOWED_MAIN_CLASS_REGEX` | string（正则） | 空（不过滤） | 限制可诊断进程的 main class | `JAVA_DIAG_ALLOWED_MAIN_CLASS_REGEX=^com\\.example\\.` |
 | `JAVA_DIAG_TOOL_TIMEOUT_MS` | long（ms） | `15000` | 普通工具子进程超时 | `JAVA_DIAG_TOOL_TIMEOUT_MS=20000` |
 | （固定）dump 超时 | long（ms） | `30000` | heap/thread dump、`gc_histo` 等使用的超时；**无 env/CLI**，代码内常量 | — |

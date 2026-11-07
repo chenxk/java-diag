@@ -6,11 +6,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -97,13 +95,13 @@ public final class ProcessRunner {
     private void validateCommand(List<String> args) {
         String executable = args.get(0);
         Path path = Path.of(executable);
-        String basename = path.getFileName().toString().toLowerCase(Locale.ROOT);
+        String basename = OsPlatform.toolBasename(path.getFileName().toString());
         if (!ALLOWED_BASENAMES.contains(basename)) {
             throw new DiagException(
                     ErrorCode.COMMAND_NOT_ALLOWED,
                     "executable not on whitelist: " + basename);
         }
-        if (path.isAbsolute() && !Files.isExecutable(path)) {
+        if (path.isAbsolute() && !OsPlatform.isRunnable(path)) {
             throw new DiagException(
                     ErrorCode.INTERNAL,
                     "executable not found or not executable: " + executable);
