@@ -1,0 +1,12 @@
+target/
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+.vscode/
+logs/
+*.log
+.DS_Store
+dependency-reduced-pom.xml
+agent-tools/
