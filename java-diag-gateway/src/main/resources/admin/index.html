@@ -53,8 +53,10 @@
 
     <section id="panel-console" class="panel console-panel" hidden>
       <nav class="console-tabs" role="tablist" aria-label="控制台分区">
-        <button type="button" class="tab-btn" role="tab" id="tab-mcp" aria-selected="true" aria-controls="tab-panel-mcp">MCP 配置</button>
-        <button type="button" class="tab-btn" role="tab" id="tab-instances" aria-selected="false" aria-controls="tab-panel-instances" tabindex="-1">探针实例</button>
+        <div class="tab-segment" role="presentation">
+          <button type="button" class="tab-btn" role="tab" id="tab-mcp" aria-selected="true" aria-controls="tab-panel-mcp" data-tab="mcp">MCP 配置</button>
+          <button type="button" class="tab-btn" role="tab" id="tab-instances" aria-selected="false" aria-controls="tab-panel-instances" tabindex="-1" data-tab="instances">探针实例</button>
+        </div>
       </nav>
 
       <div id="tab-panel-mcp" class="tab-panel" role="tabpanel" aria-labelledby="tab-mcp">
@@ -103,6 +105,7 @@
                 <th>Tags</th>
                 <th>Version</th>
                 <th>最后心跳</th>
+                <th></th>
               </tr>
             </thead>
             <tbody id="instance-rows"></tbody>
@@ -115,6 +118,26 @@
       </div>
     </section>
   </main>
+
+  <div id="probe-mcp-modal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="probe-mcp-modal-title">
+    <div class="modal-backdrop" data-modal-close tabindex="-1"></div>
+    <div class="modal-card">
+      <header class="modal-head">
+        <div>
+          <h2 id="probe-mcp-modal-title">探针 MCP 连接</h2>
+          <p class="hint" id="probe-mcp-modal-sub">—</p>
+        </div>
+        <button type="button" class="btn ghost btn-icon" id="probe-mcp-modal-close" data-modal-close aria-label="关闭">✕</button>
+      </header>
+      <pre class="mcp-snippet mono" id="probe-mcp-snippet" tabindex="0">{}</pre>
+      <div class="modal-actions">
+        <button type="button" class="btn ghost btn-compact" id="probe-mcp-copy-url">复制 URL</button>
+        <button type="button" class="btn primary btn-compact" id="probe-mcp-copy-json">复制完整 JSON</button>
+        <span class="copy-toast" id="probe-mcp-copy-toast" hidden role="status"></span>
+      </div>
+      <p class="hint mcp-token-hint" id="probe-mcp-token-hint" hidden></p>
+    </div>
+  </div>
 
   <footer class="foot">
     <span>只读视图 · 数据来自 InMemoryRegistry</span>

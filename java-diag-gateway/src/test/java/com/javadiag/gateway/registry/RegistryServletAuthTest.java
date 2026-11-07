@@ -14,6 +14,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -60,6 +61,27 @@ class RegistryServletAuthTest {
         assertTrue(resp.body().contains("\"ok\":true"));
         assertEquals(1, registry.size());
         assertFalse(registry.get("a").orElseThrow().toPublicMap().containsKey("probeToken"));
+        assertEquals("p", registry.get("a").orElseThrow().toAdminMap().get("authToken"));
+    }
+
+    @Test
+    void acceptsAuthTokenAliasOnRegister() throws Exception {
+        HttpResponse<String> resp = post("/registry/register", """
+                {"instanceId":"alias","mcpBaseUrl":"http://127.0.0.1:8765","authToken":"via-alias"}
+                """);
+        assertEquals(200, resp.statusCode());
+        assertEquals("via-alias", registry.list(null, Map.of(), false).get(0).probeToken());
+    }
+
+    @Test
+    void heartbeatMayBackfillProbeToken() throws Exception {
+        assertEquals(200, post("/registry/register", """
+                {"instanceId":"hb","mcpBaseUrl":"http://127.0.0.1:8765"}
+                """).statusCode());
+        assertEquals(200, post("/registry/heartbeat", """
+                {"instanceId":"hb","probeToken":"late-token"}
+                """).statusCode());
+        assertEquals("late-token", registry.list(null, Map.of(), false).get(0).toAdminMap().get("authToken"));
     }
 
     @Test
@@ -80,6 +102,25 @@ class RegistryServletAuthTest {
         assertEquals(200, post("/registry/heartbeat", "{\"instanceId\":\"b\"}").statusCode());
         assertEquals(200, post("/registry/deregister", "{\"instanceId\":\"b\"}").statusCode());
         assertEquals(0, registry.size());
+    }
+
+    @Test
+    void publicInstancesListOmitsProbeToken() throws Exception {
+        HttpClient client = HttpClient.newHttpClient();
+        assertEquals(200, post("/registry/register", """
+                {"instanceId":"pub","mcpBaseUrl":"http://127.0.0.1:8765","probeToken":"secret-probe"}
+                """).statusCode());
+        HttpResponse<String> list = client.send(
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/registry/instances"))
+                        .timeout(Duration.ofSeconds(5))
+                        .GET()
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, list.statusCode());
+        assertTrue(list.body().contains("pub"));
+        assertFalse(list.body().contains("secret-probe"));
+        assertFalse(list.body().contains("probeToken"));
+        assertFalse(list.body().contains("authToken"));
     }
 
     @Test

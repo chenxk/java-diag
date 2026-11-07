@@ -124,6 +124,9 @@ public final class RegistryServlet extends HttpServlet {
         String ssePath = str(payload.get("ssePath"));
         String mcpPath = str(payload.get("mcpPath"));
         String probeToken = str(payload.get("probeToken"));
+        if (probeToken == null) {
+            probeToken = str(payload.get("authToken"));
+        }
         String version = str(payload.get("version"));
         @SuppressWarnings("unchecked")
         Map<String, String> tags = castTags(payload.get("tags"));
@@ -176,7 +179,11 @@ public final class RegistryServlet extends HttpServlet {
             writeError(resp, 400, "instanceId is required");
             return;
         }
-        boolean ok = registry.heartbeat(instanceId);
+        String probeToken = str(payload.get("probeToken"));
+        if (probeToken == null) {
+            probeToken = str(payload.get("authToken"));
+        }
+        boolean ok = registry.heartbeat(instanceId, probeToken);
         if (!ok) {
             writeError(resp, 404, "instance not registered: " + instanceId);
             return;

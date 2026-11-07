@@ -57,7 +57,8 @@ java -jar java-diag-gateway.jar --help
 | `JAVA_DIAG_ADVERTISE_URL` / `--advertise-url` | URL | 空则推算 `http://{host}:{port}` | 注册到 Gateway 的对外可达 base URL；同时决定实例身份 | `--advertise-url http://10.0.1.11:8765` |
 | `JAVA_DIAG_HEARTBEAT_INTERVAL_SECONDS` / `--heartbeat-interval-seconds` | long（秒） | `20` | 心跳间隔；运行时会 `max(5, value)` | `--heartbeat-interval-seconds 15` |
 
-> 已移除探针 `JAVA_DIAG_INSTANCE_ID` / `--instance-id`。不要再单独配置 instance-id；Registry 已有 `mcpBaseUrl`/host。
+> 已移除探针 `JAVA_DIAG_INSTANCE_ID` / `--instance-id`。不要再单独配置 instance-id；Registry 已有 `mcpBaseUrl`/host。  
+> 启用注册时，`/registry/register` 会上报 `probeToken`（探针 `--token` / `JAVA_DIAG_AUTH_TOKEN`）；公开 `GET /registry/instances` 不含 token，仅 **admin 已登录** 的 `/admin/api/instances` 返回 `authToken` 供控制台拼直连 MCP 片段。
 
 ### 1.4 其它 CLI
 

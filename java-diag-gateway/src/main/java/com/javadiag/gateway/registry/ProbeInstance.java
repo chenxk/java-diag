@@ -120,4 +120,29 @@ public final class ProbeInstance {
         // never expose probeToken to agents
         return map;
     }
+
+    /** Admin console only: same as {@link #toPublicMap()} plus probe auth token when set. */
+    public Map<String, Object> toAdminMap() {
+        Map<String, Object> map = new LinkedHashMap<>(toPublicMap());
+        if (probeToken != null && !probeToken.isBlank()) {
+            map.put("authToken", probeToken);
+        }
+        return map;
+    }
+
+    ProbeInstance withProbeToken(String newToken) {
+        return new ProbeInstance(
+                instanceId,
+                serviceName,
+                host,
+                port,
+                mcpBaseUrl,
+                ssePath,
+                mcpPath,
+                newToken,
+                tags,
+                version,
+                lastHeartbeat,
+                status);
+    }
 }

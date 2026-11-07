@@ -28,6 +28,10 @@ html, body {
   line-height: 1.45;
 }
 
+body.modal-open {
+  overflow: hidden;
+}
+
 .grid-bg {
   position: fixed;
   inset: 0;
@@ -249,37 +253,59 @@ input:focus {
 
 .console-tabs {
   display: flex;
-  gap: 0.35rem;
-  margin-bottom: 1.25rem;
-  padding-bottom: 0.65rem;
-  border-bottom: 1px solid var(--line);
+  justify-content: flex-start;
+  margin-bottom: 1.35rem;
+}
+
+.tab-segment {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 0.2rem;
+  padding: 0.28rem;
+  border-radius: 999px;
+  border: 1px solid rgba(62, 207, 207, 0.22);
+  background: linear-gradient(
+    145deg,
+    rgba(10, 14, 20, 0.92),
+    rgba(17, 24, 32, 0.88)
+  );
+  box-shadow:
+    0 0 0 1px rgba(94, 184, 255, 0.05) inset,
+    0 8px 28px rgba(0, 0, 0, 0.35);
 }
 
 .tab-btn {
   font-family: var(--font-ui);
-  font-size: 0.82rem;
-  letter-spacing: 0.08em;
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  padding: 0.5rem 1rem;
-  border-radius: 3px 3px 0 0;
+  padding: 0.52rem 1.15rem;
+  border-radius: 999px;
   border: 1px solid transparent;
-  border-bottom: none;
   background: transparent;
   color: var(--muted);
   cursor: pointer;
-  position: relative;
-  margin-bottom: -1px;
+  transition: color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
 }
 
 .tab-btn:hover {
   color: var(--electric);
 }
 
+.tab-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(94, 184, 255, 0.35);
+}
+
 .tab-btn[aria-selected="true"] {
-  color: var(--accent);
-  border-color: var(--line);
-  background: linear-gradient(180deg, rgba(17, 24, 32, 0.95), rgba(10, 14, 20, 0.6));
-  box-shadow: 0 -2px 12px rgba(62, 207, 207, 0.08) inset;
+  color: #e8f6f6;
+  font-weight: 600;
+  border-color: rgba(62, 207, 207, 0.45);
+  background: linear-gradient(135deg, rgba(42, 143, 156, 0.55), rgba(26, 74, 82, 0.85));
+  box-shadow:
+    0 0 16px rgba(62, 207, 207, 0.22),
+    0 0 0 1px rgba(62, 207, 207, 0.15) inset;
 }
 
 .tab-panel {
@@ -433,6 +459,112 @@ th {
 
 tbody tr {
   animation: row-in 0.35s ease both;
+}
+
+tbody tr.instance-row {
+  cursor: pointer;
+}
+
+tbody tr.instance-row:hover td {
+  background: rgba(62, 207, 207, 0.04);
+}
+
+tbody tr.instance-row:focus-within {
+  outline: none;
+  box-shadow: inset 0 0 0 1px rgba(62, 207, 207, 0.25);
+}
+
+.btn-mcp {
+  margin-top: 0;
+  padding: 0.28rem 0.55rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  border-color: rgba(62, 207, 207, 0.35);
+}
+
+.btn-mcp:hover {
+  border-color: var(--accent-dim);
+  color: #e8f6f6;
+}
+
+.btn-icon {
+  padding: 0.35rem 0.55rem;
+  font-size: 0.85rem;
+  line-height: 1;
+  min-width: 2rem;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.modal[hidden] {
+  display: none !important;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 8, 12, 0.72);
+  backdrop-filter: blur(4px);
+}
+
+.modal-card {
+  position: relative;
+  width: min(640px, 100%);
+  max-height: min(88vh, 720px);
+  overflow: auto;
+  padding: 1.15rem 1.25rem 1.25rem;
+  border: 1px solid rgba(62, 207, 207, 0.28);
+  border-radius: 6px;
+  background: linear-gradient(160deg, rgba(17, 24, 32, 0.98), rgba(10, 14, 20, 0.96));
+  box-shadow:
+    0 0 0 1px rgba(94, 184, 255, 0.08) inset,
+    0 24px 64px rgba(0, 0, 0, 0.55),
+    0 0 48px rgba(62, 207, 207, 0.08);
+  animation: modal-in 0.22s ease both;
+}
+
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+.modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.modal-head h2 {
+  margin: 0 0 0.25rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--electric);
+}
+
+.modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.modal .btn.primary.btn-compact {
+  width: auto;
+  margin-top: 0;
 }
 
 @keyframes row-in {

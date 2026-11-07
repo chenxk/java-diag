@@ -25,9 +25,20 @@
   const panelMcp = document.getElementById("tab-panel-mcp");
   const panelInstances = document.getElementById("tab-panel-instances");
 
+  const probeModal = document.getElementById("probe-mcp-modal");
+  const probeModalSub = document.getElementById("probe-mcp-modal-sub");
+  const probeMcpSnippet = document.getElementById("probe-mcp-snippet");
+  const probeMcpTokenHint = document.getElementById("probe-mcp-token-hint");
+  const probeCopyUrl = document.getElementById("probe-mcp-copy-url");
+  const probeCopyJson = document.getElementById("probe-mcp-copy-json");
+  const probeCopyToast = document.getElementById("probe-mcp-copy-toast");
+
   let timer = null;
   let sessionMcp = null;
   let copyToastTimer = null;
+  let probeCopyToastTimer = null;
+  let activeProbeInst = null;
+  let lastInstanceList = [];
 
   function showConsole(show) {
     loadingPanel.hidden = true;
@@ -41,6 +52,25 @@
     return location.origin.replace(/\/$/, "") + "/mcp";
   }
 
+  function probeMcpUrl(inst) {
+    if (!inst || !inst.mcpBaseUrl) return "";
+    const base = String(inst.mcpBaseUrl).replace(/\/$/, "");
+    const path = (inst.mcpPath || "/mcp").replace(/^\/?/, "/");
+    if (base.endsWith(path)) return base;
+    return base + path;
+  }
+
+  function probeServerName(inst) {
+    const svc = inst && inst.serviceName && String(inst.serviceName).trim();
+    if (svc) return "java-diag-" + sanitizeServerName(svc);
+    const host = inst && inst.host ? String(inst.host) : "probe";
+    return "java-diag-" + sanitizeServerName(host);
+  }
+
+  function sanitizeServerName(s) {
+    return s.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "probe";
+  }
+
   function buildMcpServersObject(mcpMeta) {
     const name = (mcpMeta && mcpMeta.serverName) || "java-diag-gateway";
     const entry = { url: mcpUrl() };
@@ -52,12 +82,38 @@
     return { [name]: entry };
   }
 
+  function probeAuthToken(inst) {
+    if (!inst) return null;
+    const token = inst.authToken || inst.probeToken;
+    return token && String(token).trim() ? String(token).trim() : null;
+  }
+
+  function buildProbeMcpServersObject(inst) {
+    const name = probeServerName(inst);
+    const entry = { url: probeMcpUrl(inst) };
+    const token = probeAuthToken(inst);
+    if (token) {
+      entry.headers = { Authorization: "Bearer " + token };
+    } else {
+      entry.headers = { Authorization: "Bearer <token>" };
+    }
+    return { [name]: entry };
+  }
+
   function buildMcpJsonDocument(mcpMeta) {
     return { mcpServers: buildMcpServersObject(mcpMeta) };
   }
 
+  function buildProbeMcpJsonDocument(inst) {
+    return { mcpServers: buildProbeMcpServersObject(inst) };
+  }
+
   function formatMcpJson(mcpMeta) {
     return JSON.stringify(buildMcpJsonDocument(mcpMeta), null, 2);
+  }
+
+  function formatProbeMcpJson(inst) {
+    return JSON.stringify(buildProbeMcpJsonDocument(inst), null, 2);
   }
 
   function switchTab(tabId) {
@@ -95,7 +151,18 @@
     }, ok ? 1800 : 2800);
   }
 
-  async function copyText(text) {
+  function flashProbeCopyToast(ok) {
+    if (probeCopyToastTimer) clearTimeout(probeCopyToastTimer);
+    probeCopyToast.textContent = ok ? "已复制到剪贴板" : "复制失败，请手动选择上方 JSON";
+    probeCopyToast.classList.toggle("fail", !ok);
+    probeCopyToast.hidden = false;
+    probeCopyToastTimer = setTimeout(() => {
+      probeCopyToast.hidden = true;
+      probeCopyToastTimer = null;
+    }, ok ? 1800 : 2800);
+  }
+
+  async function copyText(text, toastFn) {
     let ok = false;
 
     if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
@@ -126,8 +193,40 @@
       }
     }
 
-    flashCopyToast(ok);
+    if (toastFn) {
+      toastFn(ok);
+    } else {
+      flashCopyToast(ok);
+    }
     return ok;
+  }
+
+  function openProbeModal(inst) {
+    activeProbeInst = inst;
+    const label = [inst.serviceName, inst.instanceId].filter(Boolean).join(" · ") || inst.instanceId || "探针";
+    probeModalSub.textContent = label;
+    probeMcpSnippet.textContent = formatProbeMcpJson(inst);
+    if (probeAuthToken(inst)) {
+      probeMcpTokenHint.hidden = true;
+      probeMcpTokenHint.textContent = "";
+    } else {
+      probeMcpTokenHint.hidden = false;
+      probeMcpTokenHint.textContent =
+        "该探针未上报 probe token（启动时 --token / JAVA_DIAG_AUTH_TOKEN）；上方 headers 为占位。";
+    }
+    probeModal.hidden = false;
+    document.body.classList.add("modal-open");
+    probeCopyJson.focus();
+  }
+
+  function closeProbeModal() {
+    probeModal.hidden = true;
+    document.body.classList.remove("modal-open");
+    activeProbeInst = null;
+  }
+
+  function findInstanceById(id) {
+    return lastInstanceList.find((i) => i.instanceId === id) || null;
   }
 
   async function loadSession() {
@@ -137,6 +236,43 @@
       renderMcpPanel(data.mcp);
     }
     return data.authenticated === true;
+  }
+
+  function renderInstanceRow(inst) {
+    const tr = document.createElement("tr");
+    tr.className = "instance-row";
+    tr.tabIndex = 0;
+    tr.dataset.instanceId = inst.instanceId || "";
+    const healthyRow = inst.status === "HEALTHY";
+    tr.innerHTML = `
+      <td><span class="status-pill ${healthyRow ? "healthy" : "unhealthy"}">
+        <span class="dot"></span>${escapeHtml(inst.status || "?")}
+      </span></td>
+      <td class="mono">${escapeHtml(inst.serviceName || "—")}</td>
+      <td class="mono">${escapeHtml(inst.instanceId || "—")}</td>
+      <td class="mono">${escapeHtml((inst.host || "") + (inst.port ? ":" + inst.port : ""))}</td>
+      <td class="mono">${escapeHtml(inst.mcpBaseUrl || "—")}</td>
+      <td>${renderTags(inst.tags)}</td>
+      <td class="mono">${escapeHtml(inst.version || "—")}</td>
+      <td class="mono">${escapeHtml(formatHeartbeat(inst.lastHeartbeat))}</td>
+      <td><button type="button" class="btn ghost btn-mcp" data-action="mcp">MCP</button></td>
+    `;
+    tr.addEventListener("click", (e) => {
+      if (e.target.closest("[data-action='mcp']")) return;
+      openProbeModal(inst);
+    });
+    tr.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        openProbeModal(inst);
+      }
+    });
+    const btn = tr.querySelector("[data-action='mcp']");
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openProbeModal(inst);
+    });
+    return tr;
   }
 
   async function refreshInstances() {
@@ -150,6 +286,24 @@
     if (!data.ok) return;
 
     const list = data.instances || [];
+    lastInstanceList = list;
+    const openId = activeProbeInst && activeProbeInst.instanceId;
+    if (openId) {
+      const refreshed = findInstanceById(openId);
+      if (refreshed) {
+        activeProbeInst = refreshed;
+        probeMcpSnippet.textContent = formatProbeMcpJson(refreshed);
+        if (probeAuthToken(refreshed)) {
+          probeMcpTokenHint.hidden = true;
+          probeMcpTokenHint.textContent = "";
+        } else {
+          probeMcpTokenHint.hidden = false;
+          probeMcpTokenHint.textContent =
+            "该探针未上报 probe token（启动时 --token / JAVA_DIAG_AUTH_TOKEN）；上方 headers 为占位。";
+        }
+      }
+    }
+
     document.getElementById("stat-count").textContent = String(data.count ?? list.length);
     const healthy = list.filter((i) => i.status === "HEALTHY").length;
     document.getElementById("stat-healthy").textContent = String(healthy);
@@ -161,21 +315,7 @@
     } else {
       emptyState.hidden = true;
       for (const inst of list) {
-        const tr = document.createElement("tr");
-        const healthyRow = inst.status === "HEALTHY";
-        tr.innerHTML = `
-          <td><span class="status-pill ${healthyRow ? "healthy" : "unhealthy"}">
-            <span class="dot"></span>${escapeHtml(inst.status || "?")}
-          </span></td>
-          <td class="mono">${escapeHtml(inst.serviceName || "—")}</td>
-          <td class="mono">${escapeHtml(inst.instanceId || "—")}</td>
-          <td class="mono">${escapeHtml((inst.host || "") + (inst.port ? ":" + inst.port : ""))}</td>
-          <td class="mono">${escapeHtml(inst.mcpBaseUrl || "—")}</td>
-          <td>${renderTags(inst.tags)}</td>
-          <td class="mono">${escapeHtml(inst.version || "—")}</td>
-          <td class="mono">${escapeHtml(formatHeartbeat(inst.lastHeartbeat))}</td>
-        `;
-        rows.appendChild(tr);
+        rows.appendChild(renderInstanceRow(inst));
       }
     }
     const now = new Date();
@@ -255,12 +395,30 @@
   btnCopyUrl.addEventListener("click", () => copyText(mcpUrl()));
   btnCopyJson.addEventListener("click", () => copyText(formatMcpJson(sessionMcp)));
 
+  probeCopyUrl.addEventListener("click", () => {
+    if (activeProbeInst) copyText(probeMcpUrl(activeProbeInst), flashProbeCopyToast);
+  });
+  probeCopyJson.addEventListener("click", () => {
+    if (activeProbeInst) copyText(formatProbeMcpJson(activeProbeInst), flashProbeCopyToast);
+  });
+
+  probeModal.querySelectorAll("[data-modal-close]").forEach((el) => {
+    el.addEventListener("click", closeProbeModal);
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !probeModal.hidden) {
+      closeProbeModal();
+    }
+  });
+
   tabMcp.addEventListener("click", () => switchTab(TAB_MCP));
   tabInstances.addEventListener("click", () => switchTab(TAB_INSTANCES));
 
   btnLogout.addEventListener("click", async () => {
     await api("/logout", { method: "POST" });
     stopTimer();
+    closeProbeModal();
     showConsole(false);
   });
 

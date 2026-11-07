@@ -22,16 +22,36 @@ public final class InMemoryRegistry {
     }
 
     public ProbeInstance register(ProbeInstance instance) {
+        ProbeInstance prev = instances.get(instance.instanceId());
+        if (prev != null) {
+            String token = instance.probeToken();
+            if (token == null || token.isBlank()) {
+                token = prev.probeToken();
+            }
+            if (token != null && !token.equals(instance.probeToken())) {
+                instance = instance.withProbeToken(token);
+            }
+        }
         instances.put(instance.instanceId(), instance);
         return instance;
     }
 
     public boolean heartbeat(String instanceId) {
+        return heartbeat(instanceId, null);
+    }
+
+    public boolean heartbeat(String instanceId, String probeToken) {
         ProbeInstance existing = instances.get(instanceId);
         if (existing == null) {
             return false;
         }
         existing.touchHeartbeat();
+        if (probeToken != null && !probeToken.isBlank()) {
+            String current = existing.probeToken();
+            if (current == null || current.isBlank() || !current.equals(probeToken)) {
+                instances.put(instanceId, existing.withProbeToken(probeToken));
+            }
+        }
         return true;
     }
 

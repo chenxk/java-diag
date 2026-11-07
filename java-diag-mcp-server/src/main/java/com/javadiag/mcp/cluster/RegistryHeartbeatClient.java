@@ -74,7 +74,9 @@ public final class RegistryHeartbeatClient implements AutoCloseable {
 
     private void heartbeatSafe() {
         try {
-            Map<String, Object> body = Map.of("instanceId", config.instanceId());
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("instanceId", config.instanceId());
+            config.authToken().ifPresent(token -> body.put("probeToken", token));
             int code = post("/heartbeat", body, false);
             if (code == 404) {
                 registerOnce();

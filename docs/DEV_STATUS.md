@@ -34,7 +34,7 @@ P0（12）：`diag.ping` … `diag.gc_histo` — 只读、审计、白名单、�
 |----|------|
 | 独立 gateway 包 | ✅ |
 | Built-in Registry（register/heartbeat/TTL） | ✅ |
-| Gateway `/admin/` 注册表控制台（session 登录 + 只读 API） | ✅ |
+| Gateway `/admin/` 注册表控制台（session 登录 + 只读 API；Tab/探针 MCP 弹窗复制） | ✅ |
 | Registry 可选 register-token（默认信任内网） | ✅ Top5 |
 | Gateway JSONL 代理审计 | ✅ Top5 |
 | 探针 + Gateway dump 冷却 `RATE_LIMITED` | ✅ Top5 |
