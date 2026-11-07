@@ -5,7 +5,17 @@
 ## 布局决策（相对原 TECH_ARCHITECTURE）
 
 - **已落地**：单 Maven 模块 `java-diag-mcp-server`，一个 fat jar
+- **已落地**：远程 HTTP MCP（Jetty 嵌入；SSE + Streamable HTTP），Agent 经 IP:端口连接
 - **未做**：多模块拆分、gateway、registry、Nacos、集群路由
+
+## 传输
+
+| 模式 | 启动 | 说明 |
+|------|------|------|
+| HTTP（默认） | `java -jar ... --port 8765` | 云端部署；`/sse`、`/mcp`、`/health` |
+| stdio | `java -jar ... --stdio` | 本机 IDE |
+
+可选 `JAVA_DIAG_AUTH_TOKEN`（Bearer）保护远程端点；`/health` 除外。
 
 ## 已完成工具
 
@@ -36,12 +46,14 @@
 
 - `heapdump`（危险工具，P0 不暴露）
 - 通用 shell/exec
-- gateway / registry / cluster
+- gateway / registry / cluster（多机路由仍未做；单机远程 HTTP 已支持）
 - Windows 宿主
 - `tail_log(follow=true)`
+- mTLS（当前为可选 Bearer token）
 
 ## 验证
 
 - `mvn -q clean package`（JDK 17 release）
 - `java -jar target/java-diag-mcp-server.jar --list-tools`
-- 单测：路径拒绝、超时、截断、工具清单
+- HTTP：`/health` 200；无 token 访问 `/sse` → 401；带 Bearer → 200
+- 单测：路径拒绝、超时、截断、工具清单、HTTP auth
