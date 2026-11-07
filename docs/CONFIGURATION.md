@@ -47,7 +47,7 @@ java -jar java-diag-gateway.jar --help
 
 | 名称 | 类型 | 默认值 | 含义 | 示例 |
 |------|------|--------|------|------|
-| `JAVA_DIAG_INSTANCE_ID` / `--instance-id` | string | `{hostname}-{pid}` | 探针实例 ID（注册与工具 envelope） | `--instance-id order-1` |
+| `JAVA_DIAG_INSTANCE_ID` / `--instance-id` | string | 本机主网卡 IP（非 hostname；与 service-name 同一解析） | 探针实例 ID（注册与工具 envelope）；可选，未设置时默认主 IP | `--instance-id order-1` |
 | `JAVA_DIAG_SERVICE_NAME` / `--service-name` | string | 本机主网卡 IP（非 hostname） | 服务名（注册与 `diag.list_instances` 过滤）；可选，未设置时默认主 IP | `--service-name order-service` |
 | `JAVA_DIAG_TAGS` | string | 空 | 标签，逗号分隔 `key=value` | `JAVA_DIAG_TAGS=env=prod,az=a` |
 | `--tag` | `key=value`（可重复） | — | 追加/覆盖单个标签（CLI 优先合并） | `--tag env=prod --tag az=a` |
@@ -70,14 +70,14 @@ export JAVA_DIAG_ALLOWED_LOG_DIRS=/var/log/app
 export JAVA_DIAG_AUDIT_PATH=/var/log/java-diag-audit.log
 java -jar java-diag-mcp-server.jar --host 0.0.0.0 --port 8765 --token probe-secret
 
-# 注册到 Gateway（--service-name 可选；省略则默认本机主 IP）
+# 注册到 Gateway（--service-name / --instance-id 均可选；省略则默认本机主 IP）
 java -jar java-diag-mcp-server.jar \
   --port 8765 --token probe-secret \
   --service-name order-service --instance-id order-1 --tag env=prod \
   --register-url http://gateway-host:8787 \
   --advertise-url http://10.0.1.11:8765
 
-# 同上，省略 --service-name（serviceName = 主 IP）
+# 同上，省略 --service-name 与 --instance-id（均为主 IP）
 java -jar java-diag-mcp-server.jar \
   --port 8765 --token probe-secret \
   --register-url http://gateway-host:8787 \

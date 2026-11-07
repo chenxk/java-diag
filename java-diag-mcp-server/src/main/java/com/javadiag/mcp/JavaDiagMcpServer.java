@@ -117,7 +117,7 @@ public final class JavaDiagMcpServer {
 
                 Cluster:
                   --service-name <name>        JAVA_DIAG_SERVICE_NAME (optional; default primary IP)
-                  --instance-id <id>           JAVA_DIAG_INSTANCE_ID (default hostname-pid)
+                  --instance-id <id>           JAVA_DIAG_INSTANCE_ID (optional; default primary IP)
                   --tag key=value              repeatable; or JAVA_DIAG_TAGS=k=v,k2=v2
                   --register-url <gateway>     enables heartbeat (no register-token; trust intranet)
                   --advertise-url <url>        public base URL registered to gateway

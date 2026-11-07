@@ -141,7 +141,7 @@ public final class DiagConfig {
 
         String instanceId = Optional.ofNullable(env.get(ENV_INSTANCE_ID))
                 .filter(s -> !s.isBlank())
-                .orElseGet(DiagConfig::defaultInstanceId);
+                .orElseGet(DiagConfig::primaryIpAddress);
 
         Transport transport = parseTransport(env.get(ENV_TRANSPORT), Transport.HTTP);
         String httpHost = Optional.ofNullable(env.get(ENV_HTTP_HOST))
@@ -295,19 +295,10 @@ public final class DiagConfig {
         };
     }
 
-    private static String defaultInstanceId() {
-        String host = "localhost";
-        try {
-            host = InetAddress.getLocalHost().getHostName();
-        } catch (Exception ignored) {
-            // keep default
-        }
-        return host + "-" + ProcessHandle.current().pid();
-    }
-
     /**
      * Primary machine IP (not hostname). Prefers a non-loopback IPv4 from an up NIC;
      * falls back to {@link InetAddress#getLocalHost()} address, then {@code 127.0.0.1}.
+     * Used as the default for both {@code serviceName} and {@code instanceId} when unset.
      */
     static String primaryIpAddress() {
         try {
