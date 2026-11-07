@@ -162,15 +162,22 @@ public final class JvmTools {
             }
 
             JdkToolchain.Toolchain tc = support.jdkToolchain().resolveForPid(pid);
-            List<String> cmd = new ArrayList<>();
-            cmd.add(tc.jcmd().toString());
-            cmd.add(Long.toString(pid));
-            cmd.add("GC.class_histogram");
+            // live=true: force a GC first (gated by dangerousToolsEnabled), then histogram.
+            // Previous code passed -all=false which is the jcmd default and did not force GC.
             if (live) {
-                cmd.add("-all=false");
+                CommandResult gcRun = support.processRunner().run(
+                        List.of(tc.jcmd().toString(), Long.toString(pid), "GC.run"),
+                        support.config().dumpTimeoutMs());
+                if (gcRun.exitCode() != 0) {
+                    throw new DiagException(
+                            ErrorCode.INTERNAL,
+                            "GC.run failed before live histogram: " + gcRun.combinedOutput());
+                }
             }
 
-            CommandResult result = support.processRunner().run(cmd, support.config().dumpTimeoutMs());
+            CommandResult result = support.processRunner().run(
+                    List.of(tc.jcmd().toString(), Long.toString(pid), "GC.class_histogram"),
+                    support.config().dumpTimeoutMs());
             String output = truncate(result.combinedOutput(), support.config().maxOutputBytes());
 
             Map<String, Object> data = new LinkedHashMap<>();
@@ -178,7 +185,7 @@ public final class JvmTools {
             data.put("live", live);
             data.put("histogram", output);
             data.put("exitCode", result.exitCode());
-            data.put("note", live ? "live histogram may force full GC" : "default histo without forced full GC");
+            data.put("note", live ? "forced GC.run before histogram" : "default histo without forced full GC");
             return ToolResult.of(data, result.truncated());
         });
     }

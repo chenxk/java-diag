@@ -49,6 +49,28 @@ class TargetSelectorTest {
         assertEquals(TargetSelector.Outcome.NONE, result.outcome());
     }
 
+    @Test
+    void emptyTargetMatchesAllHealthy() {
+        // Sharp edge documented in audit: missing/empty target lists every healthy probe.
+        TargetSelector.Result result = selector.resolve(Map.of());
+        assertEquals(TargetSelector.Outcome.MANY, result.outcome());
+        assertEquals(3, result.candidates().size());
+    }
+
+    @Test
+    void unhealthyInstanceIdNotRoutable() {
+        registry.register(new ProbeInstance(
+                "dead", "order", "127.0.0.1", 8765,
+                "http://127.0.0.1:8765", "/sse", "/mcp",
+                "tok", Map.of("env", "prod"), "0.1.0",
+                Instant.now().minus(Duration.ofMinutes(10)), ProbeStatus.UNHEALTHY));
+        // refresh keeps it unhealthy when lastHeartbeat is stale
+        registry.refresh();
+        TargetSelector.Result result = selector.resolve(Map.of(
+                "target", Map.of("instanceId", "dead")));
+        assertEquals(TargetSelector.Outcome.NONE, result.outcome());
+    }
+
     private static ProbeInstance probe(String id, String service, Map<String, String> tags) {
         return new ProbeInstance(
                 id, service, "127.0.0.1", 8765,

@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -92,6 +93,11 @@ public final class RegistryServlet extends HttpServlet {
             writeError(resp, 400, "instanceId and mcpBaseUrl are required");
             return;
         }
+        String scheme = mcpBaseUrl.toLowerCase(java.util.Locale.ROOT);
+        if (!scheme.startsWith("http://") && !scheme.startsWith("https://")) {
+            writeError(resp, 400, "mcpBaseUrl must be http:// or https://");
+            return;
+        }
         String serviceName = str(payload.get("serviceName"));
         String host = str(payload.get("host"));
         int port = payload.get("port") instanceof Number n ? n.intValue() : 0;
@@ -152,11 +158,20 @@ public final class RegistryServlet extends HttpServlet {
         if (provided == null) {
             provided = req.getHeader("X-Java-Diag-Register-Token");
         }
-        if (provided == null || !provided.equals(registerToken)) {
+        if (provided == null || !constantTimeEquals(provided, registerToken)) {
             writeError(resp, 401, "missing or invalid register token");
             return false;
         }
         return true;
+    }
+
+    private static boolean constantTimeEquals(String a, String b) {
+        byte[] left = a.getBytes(StandardCharsets.UTF_8);
+        byte[] right = b.getBytes(StandardCharsets.UTF_8);
+        if (left.length != right.length) {
+            return MessageDigest.isEqual(left, left) && false;
+        }
+        return MessageDigest.isEqual(left, right);
     }
 
     private static String normalize(String pathInfo) {

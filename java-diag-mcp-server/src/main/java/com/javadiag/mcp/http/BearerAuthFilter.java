@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 
@@ -29,8 +30,8 @@ public final class BearerAuthFilter implements Filter {
         HttpServletRequest req = (HttpServletRequest) request;
         HttpServletResponse resp = (HttpServletResponse) response;
 
-        String path = req.getRequestURI();
-        if ("/health".equals(path) || "/".equals(path)) {
+        String path = normalizePath(req.getRequestURI());
+        if (isExemptPath(path)) {
             chain.doFilter(request, response);
             return;
         }
@@ -53,6 +54,26 @@ public final class BearerAuthFilter implements Filter {
             return;
         }
         chain.doFilter(request, response);
+    }
+
+    /** Visible for tests: only liveness/root stay public after path normalize. */
+    static boolean isExemptPath(String path) {
+        return "/health".equals(path) || "/".equals(path);
+    }
+
+    static String normalizePath(String requestUri) {
+        if (requestUri == null || requestUri.isBlank()) {
+            return "/";
+        }
+        try {
+            String normalized = URI.create(requestUri).normalize().getPath();
+            if (normalized == null || normalized.isBlank()) {
+                return "/";
+            }
+            return normalized;
+        } catch (IllegalArgumentException ex) {
+            return requestUri;
+        }
     }
 
     private static boolean constantTimeEquals(String a, String b) {
