@@ -1,10 +1,14 @@
 package com.javadiag.mcp.config;
 
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -59,7 +63,7 @@ public final class DiagConfig {
     private final String httpHost;
     private final int httpPort;
     private final Optional<String> authToken;
-    private final Optional<String> serviceName;
+    private final String serviceName;
     private final Optional<String> registerUrl;
     private final Optional<String> advertiseUrl;
     private final long heartbeatIntervalSeconds;
@@ -79,7 +83,7 @@ public final class DiagConfig {
             String httpHost,
             int httpPort,
             Optional<String> authToken,
-            Optional<String> serviceName,
+            String serviceName,
             Optional<String> registerUrl,
             Optional<String> advertiseUrl,
             long heartbeatIntervalSeconds,
@@ -145,7 +149,7 @@ public final class DiagConfig {
                 .orElse(DEFAULT_HTTP_HOST);
         int httpPort = (int) parseLong(env.get(ENV_HTTP_PORT), DEFAULT_HTTP_PORT);
         Optional<String> authToken = Optional.ofNullable(env.get(ENV_AUTH_TOKEN)).filter(s -> !s.isBlank());
-        Optional<String> serviceName = Optional.ofNullable(env.get(ENV_SERVICE_NAME)).filter(s -> !s.isBlank());
+        Optional<String> serviceNameOpt = Optional.ofNullable(env.get(ENV_SERVICE_NAME)).filter(s -> !s.isBlank());
         Optional<String> registerUrl = Optional.ofNullable(env.get(ENV_REGISTER_URL)).filter(s -> !s.isBlank());
         Optional<String> advertiseUrl = Optional.ofNullable(env.get(ENV_ADVERTISE_URL)).filter(s -> !s.isBlank());
         long heartbeatInterval = parseLong(env.get(ENV_HEARTBEAT_INTERVAL), DEFAULT_HEARTBEAT_INTERVAL);
@@ -160,7 +164,7 @@ public final class DiagConfig {
                 case "--port" -> httpPort = Integer.parseInt(requireValue(cliArgs, ++i, arg));
                 case "--token", "--auth-token" -> authToken = Optional.of(requireValue(cliArgs, ++i, arg));
                 case "--instance-id" -> instanceId = requireValue(cliArgs, ++i, arg);
-                case "--service-name" -> serviceName = Optional.of(requireValue(cliArgs, ++i, arg));
+                case "--service-name" -> serviceNameOpt = Optional.of(requireValue(cliArgs, ++i, arg));
                 case "--register-url" -> registerUrl = Optional.of(requireValue(cliArgs, ++i, arg));
                 case "--advertise-url" -> advertiseUrl = Optional.of(requireValue(cliArgs, ++i, arg));
                 case "--heartbeat-interval-seconds" ->
@@ -183,6 +187,8 @@ public final class DiagConfig {
         if (httpPort < 1 || httpPort > 65535) {
             throw new IllegalArgumentException("http port out of range: " + httpPort);
         }
+
+        String serviceName = serviceNameOpt.orElseGet(DiagConfig::primaryIpAddress);
 
         return new DiagConfig(
                 dirs,
@@ -292,11 +298,49 @@ public final class DiagConfig {
     private static String defaultInstanceId() {
         String host = "localhost";
         try {
-            host = java.net.InetAddress.getLocalHost().getHostName();
+            host = InetAddress.getLocalHost().getHostName();
         } catch (Exception ignored) {
             // keep default
         }
         return host + "-" + ProcessHandle.current().pid();
+    }
+
+    /**
+     * Primary machine IP (not hostname). Prefers a non-loopback IPv4 from an up NIC;
+     * falls back to {@link InetAddress#getLocalHost()} address, then {@code 127.0.0.1}.
+     */
+    static String primaryIpAddress() {
+        try {
+            InetAddress ipv6Fallback = null;
+            Enumeration<NetworkInterface> nics = NetworkInterface.getNetworkInterfaces();
+            if (nics != null) {
+                while (nics.hasMoreElements()) {
+                    NetworkInterface nic = nics.nextElement();
+                    if (!nic.isUp() || nic.isLoopback() || nic.isVirtual()) {
+                        continue;
+                    }
+                    Enumeration<InetAddress> addrs = nic.getInetAddresses();
+                    while (addrs.hasMoreElements()) {
+                        InetAddress addr = addrs.nextElement();
+                        if (addr.isLoopbackAddress() || addr.isLinkLocalAddress() || addr.isAnyLocalAddress()) {
+                            continue;
+                        }
+                        if (addr instanceof Inet4Address) {
+                            return addr.getHostAddress();
+                        }
+                        if (ipv6Fallback == null) {
+                            ipv6Fallback = addr;
+                        }
+                    }
+                }
+            }
+            if (ipv6Fallback != null) {
+                return ipv6Fallback.getHostAddress();
+            }
+            return InetAddress.getLocalHost().getHostAddress();
+        } catch (Exception ignored) {
+            return "127.0.0.1";
+        }
     }
 
     public List<Path> allowedLogDirs() {
@@ -351,7 +395,7 @@ public final class DiagConfig {
         return authToken;
     }
 
-    public Optional<String> serviceName() {
+    public String serviceName() {
         return serviceName;
     }
 

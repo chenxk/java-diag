@@ -93,7 +93,7 @@ public final class RegistryHeartbeatClient implements AutoCloseable {
                 .orElseGet(() -> "http://" + advertiseHost() + ":" + config.httpPort());
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("instanceId", config.instanceId());
-        body.put("serviceName", config.serviceName().orElse(""));
+        body.put("serviceName", config.serviceName());
         body.put("host", advertiseHost());
         body.put("port", config.httpPort());
         body.put("mcpBaseUrl", trimSlash(base));

@@ -116,7 +116,7 @@ public final class JavaDiagMcpServer {
                   --token / --auth-token <v>   Bearer token (JAVA_DIAG_AUTH_TOKEN)
 
                 Cluster:
-                  --service-name <name>        JAVA_DIAG_SERVICE_NAME
+                  --service-name <name>        JAVA_DIAG_SERVICE_NAME (optional; default primary IP)
                   --instance-id <id>           JAVA_DIAG_INSTANCE_ID (default hostname-pid)
                   --tag key=value              repeatable; or JAVA_DIAG_TAGS=k=v,k2=v2
                   --register-url <gateway>     enables heartbeat (no register-token; trust intranet)
