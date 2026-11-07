@@ -30,7 +30,6 @@ public final class DiagConfig {
     public static final String ENV_AUTH_TOKEN = "JAVA_DIAG_AUTH_TOKEN";
     public static final String ENV_SERVICE_NAME = "JAVA_DIAG_SERVICE_NAME";
     public static final String ENV_REGISTER_URL = "JAVA_DIAG_REGISTER_URL";
-    public static final String ENV_REGISTER_TOKEN = "JAVA_DIAG_REGISTER_TOKEN";
     public static final String ENV_ADVERTISE_URL = "JAVA_DIAG_ADVERTISE_URL";
     public static final String ENV_HEARTBEAT_INTERVAL = "JAVA_DIAG_HEARTBEAT_INTERVAL_SECONDS";
     public static final String ENV_TAGS = "JAVA_DIAG_TAGS";
@@ -62,7 +61,6 @@ public final class DiagConfig {
     private final Optional<String> authToken;
     private final Optional<String> serviceName;
     private final Optional<String> registerUrl;
-    private final Optional<String> registerToken;
     private final Optional<String> advertiseUrl;
     private final long heartbeatIntervalSeconds;
     private final Map<String, String> tags;
@@ -83,7 +81,6 @@ public final class DiagConfig {
             Optional<String> authToken,
             Optional<String> serviceName,
             Optional<String> registerUrl,
-            Optional<String> registerToken,
             Optional<String> advertiseUrl,
             long heartbeatIntervalSeconds,
             Map<String, String> tags) {
@@ -102,7 +99,6 @@ public final class DiagConfig {
         this.authToken = authToken;
         this.serviceName = serviceName;
         this.registerUrl = registerUrl;
-        this.registerToken = registerToken;
         this.advertiseUrl = advertiseUrl;
         this.heartbeatIntervalSeconds = heartbeatIntervalSeconds;
         this.tags = Map.copyOf(tags);
@@ -151,7 +147,6 @@ public final class DiagConfig {
         Optional<String> authToken = Optional.ofNullable(env.get(ENV_AUTH_TOKEN)).filter(s -> !s.isBlank());
         Optional<String> serviceName = Optional.ofNullable(env.get(ENV_SERVICE_NAME)).filter(s -> !s.isBlank());
         Optional<String> registerUrl = Optional.ofNullable(env.get(ENV_REGISTER_URL)).filter(s -> !s.isBlank());
-        Optional<String> registerToken = Optional.ofNullable(env.get(ENV_REGISTER_TOKEN)).filter(s -> !s.isBlank());
         Optional<String> advertiseUrl = Optional.ofNullable(env.get(ENV_ADVERTISE_URL)).filter(s -> !s.isBlank());
         long heartbeatInterval = parseLong(env.get(ENV_HEARTBEAT_INTERVAL), DEFAULT_HEARTBEAT_INTERVAL);
         Map<String, String> tags = parseTags(env.get(ENV_TAGS));
@@ -167,7 +162,6 @@ public final class DiagConfig {
                 case "--instance-id" -> instanceId = requireValue(cliArgs, ++i, arg);
                 case "--service-name" -> serviceName = Optional.of(requireValue(cliArgs, ++i, arg));
                 case "--register-url" -> registerUrl = Optional.of(requireValue(cliArgs, ++i, arg));
-                case "--register-token" -> registerToken = Optional.of(requireValue(cliArgs, ++i, arg));
                 case "--advertise-url" -> advertiseUrl = Optional.of(requireValue(cliArgs, ++i, arg));
                 case "--heartbeat-interval-seconds" ->
                         heartbeatInterval = Long.parseLong(requireValue(cliArgs, ++i, arg));
@@ -189,9 +183,6 @@ public final class DiagConfig {
         if (httpPort < 1 || httpPort > 65535) {
             throw new IllegalArgumentException("http port out of range: " + httpPort);
         }
-        if (registerUrl.isPresent() && registerToken.isEmpty()) {
-            throw new IllegalArgumentException("--register-url requires --register-token");
-        }
 
         return new DiagConfig(
                 dirs,
@@ -209,7 +200,6 @@ public final class DiagConfig {
                 authToken,
                 serviceName,
                 registerUrl,
-                registerToken,
                 advertiseUrl,
                 heartbeatInterval,
                 tags);
@@ -367,10 +357,6 @@ public final class DiagConfig {
 
     public Optional<String> registerUrl() {
         return registerUrl;
-    }
-
-    public Optional<String> registerToken() {
-        return registerToken;
     }
 
     public Optional<String> advertiseUrl() {

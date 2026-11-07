@@ -37,16 +37,17 @@ public final class JavaDiagGateway {
                 java-diag-gateway — cluster MCP entry + built-in probe registry
 
                 Usage:
-                  java -jar java-diag-gateway.jar --register-token reg-secret --token agent-secret
-                  java -jar java-diag-gateway.jar --host 0.0.0.0 --port 8787 \\
-                       --register-token reg-secret --token agent-secret
+                  java -jar java-diag-gateway.jar --token agent-secret
+                  java -jar java-diag-gateway.jar --host 0.0.0.0 --port 8787 --token agent-secret
 
                 Flags:
                   --host <addr>                     default 0.0.0.0
                   --port <port>                     default 8787
                   --token / --auth-token <value>    Agent Bearer token (optional but recommended)
-                  --register-token <value>          required; probe registry auth
                   --heartbeat-ttl-seconds <n>       default 90
+
+                Registry (/registry/*) has no shared-secret auth (trust intranet).
+                Keep the gateway registry port off the public internet.
 
                 Endpoints:
                   /sse  /mcp          Agent MCP
