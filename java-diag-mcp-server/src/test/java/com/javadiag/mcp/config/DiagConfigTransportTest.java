@@ -103,6 +103,40 @@ class DiagConfigTransportTest {
         assertEquals(DiagConfig.primaryIpAddress(), config.serviceName());
     }
 
+    @Test
+    void instanceIdDefaultsToPrimaryIpWhenUnset() {
+        DiagConfig config = DiagConfig.fromEnvironment(Map.of(), List.of());
+        assertEquals(DiagConfig.primaryIpAddress(), config.instanceId());
+        assertTrue(looksLikeIp(config.instanceId()),
+                "default instanceId should be an IP, got: " + config.instanceId());
+    }
+
+    @Test
+    void instanceIdFromCliOverridesDefault() {
+        DiagConfig config = DiagConfig.fromEnvironment(
+                Map.of(),
+                List.of("--instance-id", "order-1"));
+        assertEquals("order-1", config.instanceId());
+    }
+
+    @Test
+    void instanceIdFromEnvOverridesDefault() {
+        DiagConfig config = DiagConfig.fromEnvironment(
+                Map.of(DiagConfig.ENV_INSTANCE_ID, "from-env"),
+                List.of());
+        assertEquals("from-env", config.instanceId());
+    }
+
+    @Test
+    void registerUrlWorksWithoutInstanceId() {
+        DiagConfig config = DiagConfig.fromEnvironment(
+                Map.of(),
+                List.of("--register-url", "http://gateway:8787"));
+        assertEquals("http://gateway:8787", config.registerUrl().orElseThrow());
+        assertEquals(DiagConfig.primaryIpAddress(), config.instanceId());
+        assertEquals(DiagConfig.primaryIpAddress(), config.serviceName());
+    }
+
     private static boolean looksLikeIp(String value) {
         // IPv4 dotted-quad or IPv6 (contains ':'); reject bare hostnames
         if (value == null || value.isBlank()) {
