@@ -7,6 +7,7 @@ import com.javadiag.gateway.platform.GatewayRateLimiter;
 import com.javadiag.gateway.proxy.ProbeMcpClient;
 import com.javadiag.gateway.registry.InMemoryRegistry;
 import com.javadiag.gateway.registry.ProbeInstance;
+import com.javadiag.gateway.registry.ServiceDirectory;
 import com.javadiag.gateway.route.TargetSelector;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.server.McpSyncServer;
@@ -46,10 +47,12 @@ public final class GatewayToolRegistrar {
     private final JsonSupport json;
     private final GatewayAuditLogger auditLogger;
     private final GatewayRateLimiter rateLimiter;
+    private final ServiceDirectory serviceDirectory;
 
     public GatewayToolRegistrar(GatewayConfig config, InMemoryRegistry registry, JsonSupport json) {
         this.config = config;
         this.registry = registry;
+        this.serviceDirectory = new ServiceDirectory(registry);
         this.selector = new TargetSelector(registry);
         this.probeClient = new ProbeMcpClient(json, Duration.ofSeconds(60));
         this.json = json;
@@ -61,9 +64,14 @@ public final class GatewayToolRegistrar {
         List<McpServerFeatures.SyncToolSpecification> specs = new ArrayList<>();
         specs.add(tool(
                 "diag.list_instances",
-                "List healthy registered probe instances (filter by serviceName/tags)",
+                "List healthy registered probe instances (filter by serviceName/app/tags)",
                 listInstancesSchema(),
                 this::listInstances));
+        specs.add(tool(
+                "diag.resolve_service",
+                "Resolve a JVM/business name to probe instance + pid (0=error, 1=unique, many=candidates)",
+                resolveServiceSchema(),
+                this::resolveService));
 
         Map<String, Object> targetProp = new LinkedHashMap<>();
         targetProp.put("type", "object");
@@ -108,13 +116,73 @@ public final class GatewayToolRegistrar {
             McpSchema.CallToolRequest request) {
         Map<String, Object> args = request.arguments() == null ? Map.of() : request.arguments();
         String serviceName = args.get("serviceName") == null ? null : args.get("serviceName").toString();
+        String app = args.get("app") == null ? null : args.get("app").toString();
+        if (app == null && args.get("service") != null) {
+            app = args.get("service").toString();
+        }
         Map<String, String> tags = castTags(args.get("tags"));
         boolean healthyOnly = args.get("healthyOnly") instanceof Boolean b ? b : true;
-        List<ProbeInstance> list = registry.list(serviceName, tags, healthyOnly);
+        List<ProbeInstance> list = registry.list(serviceName, app, tags, healthyOnly);
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("count", list.size());
         data.put("instances", list.stream().map(ProbeInstance::toPublicMap).collect(Collectors.toList()));
         return envelopeResult("diag.list_instances", true, data, null, false);
+    }
+
+    private McpSchema.CallToolResult resolveService(
+            io.modelcontextprotocol.server.McpSyncServerExchange exchange,
+            McpSchema.CallToolRequest request) {
+        Map<String, Object> args = request.arguments() == null ? Map.of() : request.arguments();
+        String name = args.get("name") == null ? null : args.get("name").toString();
+        if (name == null || name.isBlank()) {
+            return envelopeResult(
+                    "diag.resolve_service",
+                    false,
+                    null,
+                    Map.of("code", "INVALID_ARGUMENT", "message", "name is required"),
+                    false);
+        }
+        Map<String, String> tags = castTags(args.get("tags"));
+        if (args.get("tag") instanceof Map<?, ?> single) {
+            tags = castTags(single);
+        }
+        boolean healthyOnly = !(args.get("healthyOnly") instanceof Boolean b) || b;
+        List<ServiceDirectory.Match> matches = serviceDirectory.resolve(name, tags, healthyOnly);
+        if (matches.isEmpty()) {
+            return envelopeResult(
+                    "diag.resolve_service",
+                    false,
+                    null,
+                    Map.of(
+                            "code",
+                            "SERVICE_NOT_FOUND",
+                            "message",
+                            "no JVM matched name '" + name + "' on healthy probes"),
+                    false);
+        }
+        if (matches.size() == 1) {
+            ServiceDirectory.Match match = matches.get(0);
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("match", ServiceDirectory.toCandidateMap(match));
+            data.put("suggestedTarget", suggestedTarget(match));
+            return envelopeResult("diag.resolve_service", true, data, null, false);
+        }
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put(
+                "message",
+                "multiple JVM instances matched; choose instanceId + pid via target or retry with tag filter");
+        data.put(
+                "candidates",
+                matches.stream().map(ServiceDirectory::toCandidateMap).collect(Collectors.toList()));
+        return envelopeResult("diag.resolve_service", true, data, null, false);
+    }
+
+    private static Map<String, Object> suggestedTarget(ServiceDirectory.Match match) {
+        Map<String, Object> target = new LinkedHashMap<>();
+        target.put("instanceId", match.instance().instanceId());
+        target.put("mcpBaseUrl", match.instance().mcpBaseUrl());
+        target.put("pid", match.app().pid());
+        return target;
     }
 
     private McpSchema.CallToolResult proxyTool(String toolName, Map<String, Object> args) {
@@ -259,10 +327,21 @@ public final class GatewayToolRegistrar {
 
     private static McpSchema.JsonSchema listInstancesSchema() {
         Map<String, Object> props = new LinkedHashMap<>();
-        props.put("serviceName", Map.of("type", "string", "description", "Optional service name filter"));
+        props.put("serviceName", Map.of("type", "string", "description", "Optional probe serviceName filter"));
+        props.put("app", Map.of("type", "string", "description", "Optional JVM/business name filter on apps[]"));
+        props.put("service", Map.of("type", "string", "description", "Alias of app filter"));
         props.put("tags", Map.of("type", "object", "description", "Optional tag equals filter"));
         props.put("healthyOnly", Map.of("type", "boolean", "description", "Default true"));
         return objectSchema(props, List.of());
+    }
+
+    private static McpSchema.JsonSchema resolveServiceSchema() {
+        Map<String, Object> props = new LinkedHashMap<>();
+        props.put("name", Map.of("type", "string", "description", "Business name or mainClass/jar substring"));
+        props.put("tags", Map.of("type", "object", "description", "Optional probe tag equals filter"));
+        props.put("tag", Map.of("type", "object", "description", "Single-tag alias of tags"));
+        props.put("healthyOnly", Map.of("type", "boolean", "description", "Default true"));
+        return objectSchema(props, List.of("name"));
     }
 
     private static McpSchema.JsonSchema objectSchema(Map<String, Object> properties, List<String> required) {

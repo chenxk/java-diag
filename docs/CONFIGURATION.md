@@ -56,9 +56,10 @@ java -jar java-diag-gateway.jar --help
 | `JAVA_DIAG_REGISTRY_REGISTER_TOKEN` / `--register-token` | string | 空 | Gateway 开启 registry token 时，探针向 `/registry/*` 附带 `Authorization: Bearer` 与 `X-Registry-Token`；默认空=不发送（内网信任） | `--register-token reg-secret` |
 | `JAVA_DIAG_ADVERTISE_URL` / `--advertise-url` | URL | 空则推算 `http://{host}:{port}` | 注册到 Gateway 的对外可达 base URL；同时决定实例身份 | `--advertise-url http://10.0.1.11:8765` |
 | `JAVA_DIAG_HEARTBEAT_INTERVAL_SECONDS` / `--heartbeat-interval-seconds` | long（秒） | `20` | 心跳间隔；运行时会 `max(5, value)` | `--heartbeat-interval-seconds 15` |
+| `JAVA_DIAG_APP_NAME_MAP` / `--app-map` | string（逗号 `pattern=name`） | 空 | 将本机 JVM 的 mainClass/jar 子串（或 `regex:` 前缀正则）映射为业务名，写入心跳 `apps[]` 的 `name`；无映射时用 mainClass/jar 短名兜底 | `JAVA_DIAG_APP_NAME_MAP=order-service.jar=order-service,com.foo.PayApplication=pay-service` 或 `--app-map order-service.jar=order-service`（可重复） |
 
 > 已移除探针 `JAVA_DIAG_INSTANCE_ID` / `--instance-id`。不要再单独配置 instance-id；Registry 已有 `mcpBaseUrl`/host。  
-> 启用注册时，`/registry/register` 会上报 `probeToken`（探针 `--token` / `JAVA_DIAG_AUTH_TOKEN`）；公开 `GET /registry/instances` 不含 token，仅 **admin 已登录** 的 `/admin/api/instances` 返回 `authToken` 供控制台拼直连 MCP 片段。
+> 启用注册时，`/registry/register` 与后续 **心跳** 会上报 `probeToken`（探针 `--token` / `JAVA_DIAG_AUTH_TOKEN`）及本机 `apps[]`（最多 50 条，`commandLineSummary` 截断）；公开 `GET /registry/instances` 不含 token，仅 **admin 已登录** 的 `/admin/api/instances` 返回 `authToken` 供控制台拼直连 MCP 片段。
 
 ### 1.4 其它 CLI
 
@@ -142,11 +143,20 @@ Agent→Gateway 用 Bearer token。`/registry/*` 默认无鉴权（信任内网�
 
 | 路径 | 用途 | 鉴权 |
 |------|------|------|
-| `/sse`、`/mcp` | Agent MCP（含 `diag.list_instances` 与代理工具） | 若配置了 token，需 `Authorization: Bearer …` |
+| `/sse`、`/mcp` | Agent MCP（含 `diag.list_instances`、`diag.resolve_service` 与代理工具） | 若配置了 token，需 `Authorization: Bearer …` |
 | `/registry/*` | 探针 register / heartbeat / deregister / instances | 默认无鉴权；配置 register-token 后 **写操作**需 Bearer 或 `X-Registry-Token`；`GET /registry/instances` 仍可读 |
 | `/admin/` | 静态注册表控制台（HTML） | 无 Agent token；登录后 HttpSession |
 | `/admin/api/*` | 控制台 JSON：`login` `logout` `session` `instances` | `instances` 等需已登录 session |
 | `/health` | 存活探测 | 无 |
+
+### 2.5.1 Gateway 工具（目录）
+
+| 工具 | 参数 | 说明 |
+|------|------|------|
+| `diag.list_instances` | `serviceName?`, `app?` / `service?`, `tags?`, `healthyOnly?`（默认 true） | 返回探针列表；`app` 按本机 `apps[]` 的 name/mainClass 子串过滤 |
+| `diag.resolve_service` | **`name`**（必填）, `tags?`, `healthyOnly?` | 在健康探针的 `apps[]` 中解析 JVM；0 命中 → `SERVICE_NOT_FOUND`；1 命中 → `match` + `suggestedTarget`；多命中 → `candidates` |
+
+Agent 剧本：`resolve_service` → 使用 `suggestedTarget.instanceId` + `pid` 作为 `target` → `diag.thread_dump` / `diag.cpu_sample` 等。
 
 ### 2.6 Gateway 示例
 

@@ -15,6 +15,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import com.javadiag.mcp.process.AppNameMapper;
+
 import java.util.regex.Pattern;
 
 /**
@@ -39,6 +41,7 @@ public final class DiagConfig {
     public static final String ENV_TAGS = "JAVA_DIAG_TAGS";
     public static final String ENV_DUMP_COOLDOWN_MS = "JAVA_DIAG_DUMP_COOLDOWN_MS";
     public static final String ENV_REGISTRY_REGISTER_TOKEN = "JAVA_DIAG_REGISTRY_REGISTER_TOKEN";
+    public static final String ENV_APP_NAME_MAP = "JAVA_DIAG_APP_NAME_MAP";
 
     private static final long DEFAULT_TIMEOUT_MS = 15_000L;
     private static final long DEFAULT_DUMP_COOLDOWN_MS = 10_000L;
@@ -73,6 +76,7 @@ public final class DiagConfig {
     private final Map<String, String> tags;
     private final long dumpCooldownMs;
     private final Optional<String> registryRegisterToken;
+    private final AppNameMapper appNameMapper;
 
     private DiagConfig(
             List<Path> allowedLogDirs,
@@ -94,7 +98,8 @@ public final class DiagConfig {
             long heartbeatIntervalSeconds,
             Map<String, String> tags,
             long dumpCooldownMs,
-            Optional<String> registryRegisterToken) {
+            Optional<String> registryRegisterToken,
+            AppNameMapper appNameMapper) {
         this.allowedLogDirs = List.copyOf(allowedLogDirs);
         this.allowedMainClassRegex = allowedMainClassRegex;
         this.toolTimeoutMs = toolTimeoutMs;
@@ -115,6 +120,7 @@ public final class DiagConfig {
         this.tags = Map.copyOf(tags);
         this.dumpCooldownMs = dumpCooldownMs;
         this.registryRegisterToken = registryRegisterToken;
+        this.appNameMapper = appNameMapper == null ? AppNameMapper.empty() : appNameMapper;
     }
 
     public static DiagConfig fromEnvironment() {
@@ -162,6 +168,8 @@ public final class DiagConfig {
         long dumpCooldownMs = parseLong(env.get(ENV_DUMP_COOLDOWN_MS), DEFAULT_DUMP_COOLDOWN_MS);
         Optional<String> registryRegisterToken =
                 Optional.ofNullable(env.get(ENV_REGISTRY_REGISTER_TOKEN)).filter(s -> !s.isBlank());
+        String appNameMapEnv = env.get(ENV_APP_NAME_MAP);
+        List<String> cliAppMaps = new ArrayList<>();
 
         for (int i = 0; i < cliArgs.size(); i++) {
             String arg = cliArgs.get(i);
@@ -187,10 +195,13 @@ public final class DiagConfig {
                     mutable.put(kv.substring(0, eq), kv.substring(eq + 1));
                     tags = mutable;
                 }
+                case "--app-map" -> cliAppMaps.add(requireValue(cliArgs, ++i, arg));
                 default -> {
                 }
             }
         }
+
+        AppNameMapper appNameMapper = AppNameMapper.parse(appNameMapEnv, cliAppMaps);
 
         if (httpPort < 1 || httpPort > 65535) {
             throw new IllegalArgumentException("http port out of range: " + httpPort);
@@ -220,7 +231,8 @@ public final class DiagConfig {
                 heartbeatInterval,
                 tags,
                 dumpCooldownMs,
-                registryRegisterToken);
+                registryRegisterToken,
+                appNameMapper);
     }
 
     private static String requireValue(List<String> args, int index, String flag) {
@@ -461,5 +473,9 @@ public final class DiagConfig {
 
     public Optional<String> registryRegisterToken() {
         return registryRegisterToken;
+    }
+
+    public AppNameMapper appNameMapper() {
+        return appNameMapper;
     }
 }

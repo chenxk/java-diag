@@ -120,7 +120,8 @@ public final class AdminApiServlet extends HttpServlet {
 
     private void handleInstances(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         String service = req.getParameter("serviceName");
-        List<ProbeInstance> list = registry.list(service, Map.of(), false);
+        String app = req.getParameter("app");
+        List<ProbeInstance> list = registry.list(service, app, Map.of(), false);
         writeJson(resp, 200, Map.of(
                 "ok", true,
                 "count", list.size(),

@@ -23,6 +23,7 @@ class ProbeInstanceMapTest {
                 "/mcp",
                 "secret-probe",
                 Map.of(),
+                java.util.List.of(),
                 "1.0",
                 Instant.now(),
                 ProbeStatus.HEALTHY);
@@ -48,6 +49,7 @@ class ProbeInstanceMapTest {
                 "/mcp",
                 null,
                 Map.of(),
+                java.util.List.of(),
                 "1.0",
                 Instant.now(),
                 ProbeStatus.HEALTHY);
@@ -69,6 +71,7 @@ class ProbeInstanceMapTest {
                 "/mcp",
                 "keep-me",
                 Map.of(),
+                java.util.List.of(),
                 "1",
                 Instant.now(),
                 ProbeStatus.HEALTHY);
@@ -84,6 +87,7 @@ class ProbeInstanceMapTest {
                 "/mcp",
                 null,
                 Map.of(),
+                java.util.List.of(),
                 "1",
                 Instant.now(),
                 ProbeStatus.HEALTHY);
@@ -91,6 +95,46 @@ class ProbeInstanceMapTest {
 
         assertEquals("keep-me", registry.list(null, Map.of(), false).get(0).probeToken());
         assertEquals("keep-me", registry.list(null, Map.of(), false).get(0).toAdminMap().get("authToken"));
+    }
+
+    @Test
+    void toAdminMapAlwaysIncludesAppsArray() {
+        ProbeJvmApp app =
+                new ProbeJvmApp("order-svc", 4242L, "com.example.OrderApp", "order-svc", "java -jar order.jar", 1_700_000_000_000L, java.util.List.of(8080));
+        ProbeInstance withApps = new ProbeInstance(
+                "h:8765",
+                "svc",
+                "h",
+                8765,
+                "http://h:8765",
+                "/sse",
+                "/mcp",
+                null,
+                Map.of(),
+                java.util.List.of(app),
+                "1.0",
+                Instant.now(),
+                ProbeStatus.HEALTHY);
+        ProbeInstance empty = new ProbeInstance(
+                "h:8766",
+                "svc",
+                "h",
+                8766,
+                "http://h:8766",
+                "/sse",
+                "/mcp",
+                null,
+                Map.of(),
+                java.util.List.of(),
+                "1.0",
+                Instant.now(),
+                ProbeStatus.HEALTHY);
+
+        assertTrue(withApps.toAdminMap().containsKey("apps"));
+        assertEquals(1, ((java.util.List<?>) withApps.toAdminMap().get("apps")).size());
+        assertTrue(empty.toAdminMap().containsKey("apps"));
+        assertTrue(((java.util.List<?>) empty.toAdminMap().get("apps")).isEmpty());
+        assertFalse(empty.toPublicMap().containsKey("apps"));
     }
 
     @Test
@@ -106,6 +150,7 @@ class ProbeInstanceMapTest {
                 "/mcp",
                 null,
                 Map.of(),
+                java.util.List.of(),
                 "1",
                 Instant.now(),
                 ProbeStatus.HEALTHY));

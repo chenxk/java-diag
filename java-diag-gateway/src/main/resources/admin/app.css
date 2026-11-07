@@ -428,6 +428,116 @@ input:focus {
 .stat-value.ok { color: var(--ok); }
 .stat-value.warn { color: var(--warn); }
 
+.instance-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.instance-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.instance-filters input {
+  min-width: 14rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--panel);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+}
+
+.probe-apps-block {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem 0.85rem;
+  border: 1px solid rgba(62, 207, 207, 0.22);
+  border-radius: 4px;
+  background: rgba(62, 207, 207, 0.05);
+  box-shadow: 0 0 0 1px rgba(94, 184, 255, 0.06) inset;
+}
+
+.probe-apps-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.probe-apps-title {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--electric);
+}
+
+.probe-apps-count {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.probe-apps-block > .hint {
+  margin: 0 0 0.65rem;
+}
+
+.probe-apps-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: rgba(8, 12, 18, 0.55);
+}
+
+.probe-apps-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.76rem;
+}
+
+.probe-apps-table th,
+.probe-apps-table td {
+  padding: 0.45rem 0.55rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.probe-apps-table th {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  background: rgba(10, 14, 20, 0.9);
+}
+
+.probe-apps-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.probe-apps-name,
+.probe-apps-main {
+  max-width: 9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.probe-apps-empty {
+  margin: 0.35rem 0 0;
+  padding: 0.55rem 0.65rem;
+  border: 1px dashed var(--line);
+  border-radius: 3px;
+  font-size: 0.82rem;
+  color: var(--muted);
+  text-align: center;
+}
+
 .table-wrap {
   overflow-x: auto;
   border: 1px solid var(--line);
@@ -518,7 +628,7 @@ tbody tr.instance-row:focus-within {
 
 .modal-card {
   position: relative;
-  width: min(640px, 100%);
+  width: min(760px, 100%);
   max-height: min(88vh, 720px);
   overflow: auto;
   padding: 1.15rem 1.25rem 1.25rem;

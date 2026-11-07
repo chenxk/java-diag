@@ -90,8 +90,15 @@ java -jar java-diag-mcp-server/target/java-diag-mcp-server.jar \
 }
 ```
 
-剧本：`diag.list_instances` → 多命中时看 `candidates` → 带 `target.instanceId`（advertise `host:port`）或 `target.mcpBaseUrl` 再调 `diag.thread_dump` 等。  
+剧本（按 JVM / 业务名）：
+
+1. `diag.resolve_service` `{ "name": "order-service", "tags": { "env": "prod" } }` → 唯一命中得 `suggestedTarget`；多命中看 `candidates`
+2. 带 `target`（`instanceId` / `mcpBaseUrl`）+ `pid` 调用 `diag.thread_dump`、`diag.cpu_sample` 等
+
+也可：`diag.list_instances`（支持 `app` / `serviceName` 过滤）→ 多命中时看 `candidates` → 再指定 `target`。  
 **多副本不会静默选机。**
+
+探针侧可用 `JAVA_DIAG_APP_NAME_MAP` / `--app-map` 把 jar/mainClass 映射为 `apps[].name`，便于按业务名解析。
 
 ## 锁定决策（集群）
 
@@ -107,7 +114,7 @@ java -jar java-diag-mcp-server/target/java-diag-mcp-server.jar \
 
 ## 工具（探针）
 
-Meta / Logs / JVM：`diag.ping` … `diag.gc_histo`（共 12 个）。Gateway 另提供 `diag.list_instances` 并代理上述工具。
+Meta / Logs / JVM：`diag.ping` … `diag.gc_histo`（共 12 个）。Gateway 另提供 `diag.list_instances`、`diag.resolve_service` 并代理上述工具。
 
 ## 测试
 

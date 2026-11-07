@@ -39,6 +39,14 @@
   let probeCopyToastTimer = null;
   let activeProbeInst = null;
   let lastInstanceList = [];
+  const filterService = document.getElementById("filter-service");
+  const filterApp = document.getElementById("filter-app");
+  const probeAppsBlock = document.getElementById("probe-apps-block");
+  const probeAppsCount = document.getElementById("probe-apps-count");
+  const probeAppsTableWrap = document.getElementById("probe-apps-table-wrap");
+  const probeAppsTbody = document.getElementById("probe-apps-tbody");
+  const probeAppsEmpty = document.getElementById("probe-apps-empty");
+  let filterDebounce = null;
 
   function showConsole(show) {
     loadingPanel.hidden = true;
@@ -201,10 +209,59 @@
     return ok;
   }
 
+  function formatAppStart(epochMs) {
+    if (epochMs == null || epochMs === "") return "—";
+    try {
+      const d = new Date(Number(epochMs));
+      if (Number.isNaN(d.getTime())) return "—";
+      return d.toISOString().replace("T", " ").slice(0, 19) + "Z";
+    } catch {
+      return "—";
+    }
+  }
+
+  function formatAppPorts(ports) {
+    if (!ports || !Array.isArray(ports) || ports.length === 0) return "—";
+    return ports.join(", ");
+  }
+
+  function renderProbeApps(inst) {
+    const apps = inst && Array.isArray(inst.apps) ? inst.apps : [];
+    probeAppsTbody.replaceChildren();
+
+    if (apps.length === 0) {
+      probeAppsCount.hidden = true;
+      probeAppsTableWrap.hidden = true;
+      probeAppsEmpty.hidden = false;
+      return;
+    }
+
+    probeAppsEmpty.hidden = true;
+    probeAppsTableWrap.hidden = false;
+    probeAppsCount.hidden = false;
+    probeAppsCount.textContent = apps.length + " 个进程";
+
+    for (const app of apps) {
+      const tr = document.createElement("tr");
+      const name = app.name || app.displayName || app.mainClass || "—";
+      const pid = app.pid != null ? String(app.pid) : "—";
+      const main = app.mainClass || "—";
+      tr.innerHTML = `
+        <td class="mono probe-apps-name" title="${escapeHtml(name)}">${escapeHtml(name)}</td>
+        <td class="mono">${escapeHtml(pid)}</td>
+        <td class="mono probe-apps-main" title="${escapeHtml(main)}">${escapeHtml(main)}</td>
+        <td class="mono">${escapeHtml(formatAppPorts(app.ports))}</td>
+        <td class="mono">${escapeHtml(formatAppStart(app.startTimeEpochMs))}</td>
+      `;
+      probeAppsTbody.appendChild(tr);
+    }
+  }
+
   function openProbeModal(inst) {
     activeProbeInst = inst;
     const label = [inst.serviceName, inst.instanceId].filter(Boolean).join(" · ") || inst.instanceId || "探针";
     probeModalSub.textContent = label;
+    renderProbeApps(inst);
     probeMcpSnippet.textContent = formatProbeMcpJson(inst);
     if (probeAuthToken(inst)) {
       probeMcpTokenHint.hidden = true;
@@ -253,6 +310,7 @@
       <td class="mono">${escapeHtml((inst.host || "") + (inst.port ? ":" + inst.port : ""))}</td>
       <td class="mono">${escapeHtml(inst.mcpBaseUrl || "—")}</td>
       <td>${renderTags(inst.tags)}</td>
+      <td class="mono">${renderAppsCount(inst.apps)}</td>
       <td class="mono">${escapeHtml(inst.version || "—")}</td>
       <td class="mono">${escapeHtml(formatHeartbeat(inst.lastHeartbeat))}</td>
       <td><button type="button" class="btn ghost btn-mcp" data-action="mcp">MCP</button></td>
@@ -275,8 +333,18 @@
     return tr;
   }
 
+  function instanceListQuery() {
+    const params = new URLSearchParams();
+    const svc = filterService && filterService.value.trim();
+    const app = filterApp && filterApp.value.trim();
+    if (svc) params.set("serviceName", svc);
+    if (app) params.set("app", app);
+    const q = params.toString();
+    return q ? "/instances?" + q : "/instances";
+  }
+
   async function refreshInstances() {
-    const res = await api("/instances");
+    const res = await api(instanceListQuery());
     if (res.status === 401) {
       stopTimer();
       showConsole(false);
@@ -292,6 +360,7 @@
       const refreshed = findInstanceById(openId);
       if (refreshed) {
         activeProbeInst = refreshed;
+        renderProbeApps(refreshed);
         probeMcpSnippet.textContent = formatProbeMcpJson(refreshed);
         if (probeAuthToken(refreshed)) {
           probeMcpTokenHint.hidden = true;
@@ -321,6 +390,11 @@
     const now = new Date();
     refreshMeta.textContent = "刷新于 " + now.toLocaleTimeString();
     footClock.textContent = now.toISOString().replace("T", " ").slice(0, 19) + "Z";
+  }
+
+  function renderAppsCount(apps) {
+    if (!apps || !Array.isArray(apps) || apps.length === 0) return "—";
+    return String(apps.length);
   }
 
   function renderTags(tags) {
@@ -411,6 +485,16 @@
       closeProbeModal();
     }
   });
+
+  function scheduleFilterRefresh() {
+    if (filterDebounce) clearTimeout(filterDebounce);
+    filterDebounce = setTimeout(() => {
+      if (!consolePanel.hidden) refreshInstances();
+    }, 350);
+  }
+
+  if (filterService) filterService.addEventListener("input", scheduleFilterRefresh);
+  if (filterApp) filterApp.addEventListener("input", scheduleFilterRefresh);
 
   tabMcp.addEventListener("click", () => switchTab(TAB_MCP));
   tabInstances.addEventListener("click", () => switchTab(TAB_INSTANCES));

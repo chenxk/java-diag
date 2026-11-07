@@ -71,7 +71,7 @@ class TargetSelectorTest {
         registry.register(new ProbeInstance(
                 "dead", "order", "127.0.0.1", 8765,
                 "http://127.0.0.1:8765", "/sse", "/mcp",
-                "tok", Map.of("env", "prod"), "0.1.0",
+                "tok", Map.of("env", "prod"), java.util.List.of(), "0.1.0",
                 Instant.now().minus(Duration.ofMinutes(10)), ProbeStatus.UNHEALTHY));
         // refresh keeps it unhealthy when lastHeartbeat is stale
         registry.refresh();
@@ -88,6 +88,6 @@ class TargetSelectorTest {
         return new ProbeInstance(
                 id, service, "127.0.0.1", 8765,
                 mcpBaseUrl, "/sse", "/mcp",
-                "tok", tags, "0.1.0", Instant.now(), ProbeStatus.HEALTHY);
+                "tok", tags, java.util.List.of(), "0.1.0", Instant.now(), ProbeStatus.HEALTHY);
     }
 }

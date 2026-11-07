@@ -2,6 +2,7 @@ package com.javadiag.mcp.cluster;
 
 import com.javadiag.mcp.config.DiagConfig;
 import com.javadiag.mcp.platform.JsonCodec;
+import com.javadiag.mcp.process.JavaProcessService;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -10,6 +11,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -23,6 +25,7 @@ public final class RegistryHeartbeatClient implements AutoCloseable {
 
     private final DiagConfig config;
     private final JsonCodec codec;
+    private final JvmDirectoryBuilder directoryBuilder;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread t = new Thread(r, "java-diag-registry-heartbeat");
@@ -32,8 +35,17 @@ public final class RegistryHeartbeatClient implements AutoCloseable {
     private final AtomicBoolean started = new AtomicBoolean(false);
 
     public RegistryHeartbeatClient(DiagConfig config, JsonCodec codec) {
+        this(config, codec, null);
+    }
+
+    public RegistryHeartbeatClient(DiagConfig config, JsonCodec codec, JavaProcessService processService) {
         this.config = config;
         this.codec = codec;
+        if (processService != null) {
+            this.directoryBuilder = new JvmDirectoryBuilder(processService, config.appNameMapper());
+        } else {
+            this.directoryBuilder = null;
+        }
     }
 
     public void start() {
@@ -77,6 +89,7 @@ public final class RegistryHeartbeatClient implements AutoCloseable {
             Map<String, Object> body = new LinkedHashMap<>();
             body.put("instanceId", config.instanceId());
             config.authToken().ifPresent(token -> body.put("probeToken", token));
+            attachApps(body);
             int code = post("/heartbeat", body, false);
             if (code == 404) {
                 registerOnce();
@@ -90,7 +103,7 @@ public final class RegistryHeartbeatClient implements AutoCloseable {
         post("/deregister", Map.of("instanceId", config.instanceId()), false);
     }
 
-    private Map<String, Object> buildPayload() {
+    Map<String, Object> buildPayload() {
         String host = advertiseHost();
         int port = DiagConfig.resolveAdvertisePort(config.advertiseUrl(), config.httpPort());
         String base = config.advertiseUrl()
@@ -106,7 +119,19 @@ public final class RegistryHeartbeatClient implements AutoCloseable {
         body.put("probeToken", config.authToken().orElse(null));
         body.put("tags", config.tags());
         body.put("version", config.version());
+        attachApps(body);
         return body;
+    }
+
+    private void attachApps(Map<String, Object> body) {
+        if (directoryBuilder == null) {
+            return;
+        }
+        try {
+            body.put("apps", directoryBuilder.buildApps());
+        } catch (Exception ex) {
+            System.err.println("registry apps scan failed: " + ex.getMessage());
+        }
     }
 
     private int post(String path, Map<String, Object> body, boolean throwOnError) {

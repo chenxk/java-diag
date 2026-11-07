@@ -17,7 +17,7 @@ class InMemoryRegistryTest {
         registry.register(new ProbeInstance(
                 "x", "svc", "127.0.0.1", 1,
                 "http://127.0.0.1:1", "/sse", "/mcp",
-                null, Map.of(), "0.1.0", Instant.now(), ProbeStatus.HEALTHY));
+                null, Map.of(), java.util.List.of(), "0.1.0", Instant.now(), ProbeStatus.HEALTHY));
         Thread.sleep(80);
         registry.refresh();
         assertTrue(registry.list("svc", Map.of(), true).isEmpty());
@@ -31,7 +31,7 @@ class InMemoryRegistryTest {
         registry.register(new ProbeInstance(
                 "x", "svc", "127.0.0.1", 1,
                 "http://127.0.0.1:1", "/sse", "/mcp",
-                null, Map.of(), "0.1.0", Instant.now(), ProbeStatus.HEALTHY));
+                null, Map.of(), java.util.List.of(), "0.1.0", Instant.now(), ProbeStatus.HEALTHY));
         Thread.sleep(80);
         assertTrue(registry.heartbeat("x"));
         Thread.sleep(80);

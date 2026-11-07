@@ -4,7 +4,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,29 +27,46 @@ public final class InMemoryRegistry {
             if (token == null || token.isBlank()) {
                 token = prev.probeToken();
             }
+            List<ProbeJvmApp> apps = instance.apps().isEmpty() ? prev.apps() : instance.apps();
+            ProbeInstance merged = instance;
             if (token != null && !token.equals(instance.probeToken())) {
-                instance = instance.withProbeToken(token);
+                merged = merged.withProbeToken(token);
             }
+            if (!apps.equals(instance.apps())) {
+                merged = merged.withApps(apps);
+            }
+            instance = merged;
         }
         instances.put(instance.instanceId(), instance);
         return instance;
     }
 
     public boolean heartbeat(String instanceId) {
-        return heartbeat(instanceId, null);
+        return heartbeat(instanceId, null, null);
     }
 
     public boolean heartbeat(String instanceId, String probeToken) {
+        return heartbeat(instanceId, probeToken, null);
+    }
+
+    public boolean heartbeat(String instanceId, String probeToken, List<ProbeJvmApp> apps) {
         ProbeInstance existing = instances.get(instanceId);
         if (existing == null) {
             return false;
         }
         existing.touchHeartbeat();
+        ProbeInstance updated = existing;
         if (probeToken != null && !probeToken.isBlank()) {
             String current = existing.probeToken();
             if (current == null || current.isBlank() || !current.equals(probeToken)) {
-                instances.put(instanceId, existing.withProbeToken(probeToken));
+                updated = updated.withProbeToken(probeToken);
             }
+        }
+        if (apps != null) {
+            updated = updated.withApps(apps);
+        }
+        if (updated != existing) {
+            instances.put(instanceId, updated);
         }
         return true;
     }
@@ -66,6 +82,11 @@ public final class InMemoryRegistry {
     }
 
     public List<ProbeInstance> list(String serviceName, Map<String, String> tagEquals, boolean healthyOnly) {
+        return list(serviceName, null, tagEquals, healthyOnly);
+    }
+
+    public List<ProbeInstance> list(
+            String serviceName, String appFilter, Map<String, String> tagEquals, boolean healthyOnly) {
         refresh();
         List<ProbeInstance> out = new ArrayList<>();
         for (ProbeInstance instance : instances.values()) {
@@ -74,6 +95,9 @@ public final class InMemoryRegistry {
             }
             if (serviceName != null && !serviceName.isBlank()
                     && !instance.serviceName().equalsIgnoreCase(serviceName)) {
+                continue;
+            }
+            if (appFilter != null && !appFilter.isBlank() && !instance.hasMatchingApp(appFilter)) {
                 continue;
             }
             if (tagEquals != null && !tagEquals.isEmpty()) {

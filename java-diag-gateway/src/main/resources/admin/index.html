@@ -78,6 +78,17 @@
       </div>
 
       <div id="tab-panel-instances" class="tab-panel" role="tabpanel" aria-labelledby="tab-instances" hidden>
+        <div class="instance-filters">
+          <label>
+            <span>Service 过滤</span>
+            <input type="search" id="filter-service" placeholder="probe serviceName" autocomplete="off">
+          </label>
+          <label>
+            <span>App / JVM 过滤</span>
+            <input type="search" id="filter-app" placeholder="业务名或 mainClass 子串" autocomplete="off">
+          </label>
+        </div>
+
         <div class="stats">
           <div class="stat">
             <span class="stat-label">注册总数</span>
@@ -103,6 +114,7 @@
                 <th>Host</th>
                 <th>MCP Base</th>
                 <th>Tags</th>
+                <th>Apps</th>
                 <th>Version</th>
                 <th>最后心跳</th>
                 <th></th>
@@ -124,11 +136,33 @@
     <div class="modal-card">
       <header class="modal-head">
         <div>
-          <h2 id="probe-mcp-modal-title">探针 MCP 连接</h2>
+          <h2 id="probe-mcp-modal-title">探针详情 · MCP</h2>
           <p class="hint" id="probe-mcp-modal-sub">—</p>
         </div>
         <button type="button" class="btn ghost btn-icon" id="probe-mcp-modal-close" data-modal-close aria-label="关闭">✕</button>
       </header>
+      <section class="probe-apps-block" id="probe-apps-block" aria-labelledby="probe-apps-title">
+        <div class="probe-apps-head">
+          <h3 class="probe-apps-title" id="probe-apps-title">本机 JVM 目录</h3>
+          <span class="probe-apps-count mono" id="probe-apps-count" hidden></span>
+        </div>
+        <p class="hint" id="probe-apps-hint">来自心跳 <code>apps[]</code>；网关侧可用 <code>diag.resolve_service</code> 按 name 解析 pid。</p>
+        <div class="probe-apps-table-wrap" id="probe-apps-table-wrap" hidden>
+          <table class="probe-apps-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>PID</th>
+                <th>Main Class</th>
+                <th>Ports</th>
+                <th>Start</th>
+              </tr>
+            </thead>
+            <tbody id="probe-apps-tbody"></tbody>
+          </table>
+        </div>
+        <p class="probe-apps-empty" id="probe-apps-empty" hidden>暂无上报 JVM（等待下一次心跳，或探针未启用进程扫描）</p>
+      </section>
       <pre class="mcp-snippet mono" id="probe-mcp-snippet" tabindex="0">{}</pre>
       <div class="modal-actions">
         <button type="button" class="btn ghost btn-compact" id="probe-mcp-copy-url">复制 URL</button>

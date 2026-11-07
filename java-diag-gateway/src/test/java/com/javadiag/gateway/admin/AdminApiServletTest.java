@@ -4,6 +4,7 @@ import com.javadiag.gateway.config.GatewayConfig;
 import com.javadiag.gateway.json.JsonSupport;
 import com.javadiag.gateway.registry.InMemoryRegistry;
 import com.javadiag.gateway.registry.ProbeInstance;
+import com.javadiag.gateway.registry.ProbeJvmApp;
 import com.javadiag.gateway.registry.ProbeStatus;
 import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
 import org.eclipse.jetty.ee10.servlet.ServletHolder;
@@ -21,6 +22,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -48,6 +50,14 @@ class AdminApiServletTest {
                 "/mcp",
                 "probe-tok",
                 Map.of("env", "prod"),
+                List.of(new ProbeJvmApp(
+                        "order.jar",
+                        9001L,
+                        "com.example.OrderMain",
+                        "order",
+                        "java -jar order.jar",
+                        1_700_000_000_000L,
+                        List.of(8080))),
                 "0.1.0",
                 Instant.now(),
                 ProbeStatus.HEALTHY));
@@ -104,6 +114,9 @@ class AdminApiServletTest {
         assertTrue(instances.body().contains("\"count\":1"));
         assertTrue(instances.body().contains("\"authToken\":\"probe-tok\""));
         assertFalse(instances.body().contains("\"probeToken\""));
+        assertTrue(instances.body().contains("\"apps\""));
+        assertTrue(instances.body().contains("\"name\":\"order.jar\""));
+        assertTrue(instances.body().contains("\"pid\":9001"));
     }
 
     @Test

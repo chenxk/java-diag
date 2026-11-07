@@ -5,6 +5,7 @@ import com.javadiag.mcp.config.DiagConfig;
 import com.javadiag.mcp.http.HttpMcpServerBootstrap;
 import com.javadiag.mcp.mcp.ToolRegistrar;
 import com.javadiag.mcp.platform.JsonCodec;
+import com.javadiag.mcp.process.JavaProcessService;
 import com.javadiag.mcp.tools.ToolSupport;
 import io.modelcontextprotocol.json.McpJsonMapper;
 import io.modelcontextprotocol.server.McpServer;
@@ -38,16 +39,18 @@ public final class JavaDiagMcpServer {
         ToolRegistrar registrar = new ToolRegistrar(support);
 
         if (config.transport() == DiagConfig.Transport.HTTP) {
-            startHttp(config, registrar, codec);
+            startHttp(config, registrar, codec, support);
         } else {
             startStdio(config, registrar, codec);
         }
     }
 
-    private static void startHttp(DiagConfig config, ToolRegistrar registrar, JsonCodec codec) throws Exception {
+    private static void startHttp(
+            DiagConfig config, ToolRegistrar registrar, JsonCodec codec, ToolSupport support) throws Exception {
         HttpMcpServerBootstrap bootstrap = new HttpMcpServerBootstrap(config, registrar, codec);
         bootstrap.start();
-        RegistryHeartbeatClient heartbeat = new RegistryHeartbeatClient(config, codec);
+        JavaProcessService processService = support.processService();
+        RegistryHeartbeatClient heartbeat = new RegistryHeartbeatClient(config, codec, processService);
         heartbeat.start();
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             heartbeat.stop();
@@ -123,6 +126,7 @@ public final class JavaDiagMcpServer {
                   --advertise-url <url>        public base URL registered to gateway
                                                (instance identity = host:port from this URL)
                   --heartbeat-interval-seconds <n>   default 20 (min effective 5)
+                  --app-map <pattern>=<name>        repeatable; or JAVA_DIAG_APP_NAME_MAP
 
                 Env-only (no CLI):
                   JAVA_DIAG_TRANSPORT=http|stdio
@@ -133,6 +137,7 @@ public final class JavaDiagMcpServer {
                   JAVA_DIAG_DANGEROUS_TOOLS_ENABLED=false
                   JAVA_DIAG_AUDIT_PATH=./logs/java-diag-audit.log
                   JAVA_DIAG_DUMP_COOLDOWN_MS=10000
+                  JAVA_DIAG_APP_NAME_MAP=order-service.jar=order-service,com.foo.App=foo
 
                 Other: --help / -h   --list-tools
                 """);

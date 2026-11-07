@@ -82,7 +82,8 @@ public final class RegistryServlet extends HttpServlet {
             return;
         }
         String service = req.getParameter("serviceName");
-        List<ProbeInstance> list = registry.list(service, Map.of(), false);
+        String app = req.getParameter("app");
+        List<ProbeInstance> list = registry.list(service, app, Map.of(), false);
         writeJson(resp, 200, Map.of(
                 "ok", true,
                 "count", list.size(),
@@ -130,6 +131,8 @@ public final class RegistryServlet extends HttpServlet {
         String version = str(payload.get("version"));
         @SuppressWarnings("unchecked")
         Map<String, String> tags = castTags(payload.get("tags"));
+        List<ProbeJvmApp> apps = ProbeJvmApp.parseList(
+                payload.get("apps") != null ? payload.get("apps") : payload.get("jvms"), 50);
 
         ProbeInstance instance = new ProbeInstance(
                 instanceId,
@@ -141,6 +144,7 @@ public final class RegistryServlet extends HttpServlet {
                 mcpPath,
                 probeToken,
                 tags,
+                apps,
                 version,
                 Instant.now(),
                 ProbeStatus.HEALTHY);
@@ -183,7 +187,12 @@ public final class RegistryServlet extends HttpServlet {
         if (probeToken == null) {
             probeToken = str(payload.get("authToken"));
         }
-        boolean ok = registry.heartbeat(instanceId, probeToken);
+        List<ProbeJvmApp> apps = null;
+        if (payload.containsKey("apps") || payload.containsKey("jvms")) {
+            apps = ProbeJvmApp.parseList(
+                    payload.get("apps") != null ? payload.get("apps") : payload.get("jvms"), 50);
+        }
+        boolean ok = registry.heartbeat(instanceId, probeToken, apps);
         if (!ok) {
             writeError(resp, 404, "instance not registered: " + instanceId);
             return;

@@ -2,8 +2,10 @@ package com.javadiag.gateway.registry;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 public final class ProbeInstance {
 
@@ -16,6 +18,7 @@ public final class ProbeInstance {
     private final String mcpPath;
     private final String probeToken;
     private final Map<String, String> tags;
+    private final List<ProbeJvmApp> apps;
     private final String version;
     private volatile Instant lastHeartbeat;
     private volatile ProbeStatus status;
@@ -30,6 +33,7 @@ public final class ProbeInstance {
             String mcpPath,
             String probeToken,
             Map<String, String> tags,
+            List<ProbeJvmApp> apps,
             String version,
             Instant lastHeartbeat,
             ProbeStatus status) {
@@ -42,6 +46,7 @@ public final class ProbeInstance {
         this.mcpPath = mcpPath == null || mcpPath.isBlank() ? "/mcp" : mcpPath;
         this.probeToken = probeToken;
         this.tags = Map.copyOf(tags == null ? Map.of() : tags);
+        this.apps = List.copyOf(apps == null ? List.of() : apps);
         this.version = version;
         this.lastHeartbeat = lastHeartbeat == null ? Instant.now() : lastHeartbeat;
         this.status = status == null ? ProbeStatus.HEALTHY : status;
@@ -83,6 +88,10 @@ public final class ProbeInstance {
         return tags;
     }
 
+    public List<ProbeJvmApp> apps() {
+        return apps;
+    }
+
     public String version() {
         return version;
     }
@@ -104,6 +113,18 @@ public final class ProbeInstance {
         this.status = ProbeStatus.UNHEALTHY;
     }
 
+    public boolean hasMatchingApp(String appFilter) {
+        if (appFilter == null || appFilter.isBlank()) {
+            return true;
+        }
+        for (ProbeJvmApp app : apps) {
+            if (app.matchesQuery(appFilter)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public Map<String, Object> toPublicMap() {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("instanceId", instanceId);
@@ -117,6 +138,11 @@ public final class ProbeInstance {
         map.put("version", version);
         map.put("lastHeartbeat", lastHeartbeat.toString());
         map.put("status", status.name());
+        if (!apps.isEmpty()) {
+            map.put(
+                    "apps",
+                    apps.stream().map(ProbeJvmApp::toPublicMap).collect(Collectors.toList()));
+        }
         // never expose probeToken to agents
         return map;
     }
@@ -124,6 +150,9 @@ public final class ProbeInstance {
     /** Admin console only: same as {@link #toPublicMap()} plus probe auth token when set. */
     public Map<String, Object> toAdminMap() {
         Map<String, Object> map = new LinkedHashMap<>(toPublicMap());
+        map.put(
+                "apps",
+                apps.stream().map(ProbeJvmApp::toPublicMap).collect(Collectors.toList()));
         if (probeToken != null && !probeToken.isBlank()) {
             map.put("authToken", probeToken);
         }
@@ -141,6 +170,24 @@ public final class ProbeInstance {
                 mcpPath,
                 newToken,
                 tags,
+                apps,
+                version,
+                lastHeartbeat,
+                status);
+    }
+
+    ProbeInstance withApps(List<ProbeJvmApp> newApps) {
+        return new ProbeInstance(
+                instanceId,
+                serviceName,
+                host,
+                port,
+                mcpBaseUrl,
+                ssePath,
+                mcpPath,
+                probeToken,
+                tags,
+                newApps,
                 version,
                 lastHeartbeat,
                 status);

@@ -40,6 +40,9 @@ P0（12）：`diag.ping` … `diag.gc_histo` — 只读、审计、白名单、�
 | 探针 + Gateway dump 冷却 `RATE_LIMITED` | ✅ Top5 |
 | 探针 `--register-url` 心跳客户端 | ✅ |
 | `diag.list_instances` | ✅ |
+| 心跳上报本机 `apps[]`（JVM 目录） | ✅ |
+| `diag.resolve_service`（业务名→探针+pid） | ✅ |
+| `list_instances` / Admin 按 app 过滤 | ✅ |
 | `target` 代理；多命中返回 candidates | ✅ |
 | 代理新工具 `heap_dump` / `cpu_sample` / `vm_info` | ✅ Top5 |
 | grep/cluster `since` 时间过滤；log_paths cmdline 推断 | ✅ Top5 |
