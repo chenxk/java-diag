@@ -7,7 +7,6 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -15,25 +14,21 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Control-plane HTTP API: /registry/register|heartbeat|deregister|instances
+ * Control-plane HTTP API: /registry/register|heartbeat|deregister|instances.
+ * No shared-secret auth — trust intranet; keep Registry off the public internet.
  */
 public final class RegistryServlet extends HttpServlet {
 
     private final InMemoryRegistry registry;
-    private final String registerToken;
     private final JsonSupport json;
 
-    public RegistryServlet(InMemoryRegistry registry, String registerToken, JsonSupport json) {
+    public RegistryServlet(InMemoryRegistry registry, JsonSupport json) {
         this.registry = registry;
-        this.registerToken = registerToken;
         this.json = json;
     }
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        if (!authorize(req, resp)) {
-            return;
-        }
         String path = normalize(req.getPathInfo());
         String body = new String(req.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         Map<String, Object> payload = body.isBlank() ? Map.of() : json.toMap(body);
@@ -48,9 +43,6 @@ public final class RegistryServlet extends HttpServlet {
 
     @Override
     protected void doDelete(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        if (!authorize(req, resp)) {
-            return;
-        }
         String path = normalize(req.getPathInfo());
         if (!"/deregister".equals(path)) {
             writeError(resp, 404, "unknown registry path: " + path);
@@ -70,9 +62,6 @@ public final class RegistryServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        if (!authorize(req, resp)) {
-            return;
-        }
         String path = normalize(req.getPathInfo());
         if (!"/instances".equals(path) && !"".equals(path) && !"/".equals(path)) {
             writeError(resp, 404, "unknown registry path: " + path);
@@ -147,31 +136,6 @@ public final class RegistryServlet extends HttpServlet {
         }
         boolean removed = registry.deregister(instanceId);
         writeJson(resp, 200, Map.of("ok", removed, "instanceId", instanceId));
-    }
-
-    private boolean authorize(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        String provided = null;
-        String header = req.getHeader("Authorization");
-        if (header != null && header.regionMatches(true, 0, "Bearer ", 0, 7)) {
-            provided = header.substring(7).trim();
-        }
-        if (provided == null) {
-            provided = req.getHeader("X-Java-Diag-Register-Token");
-        }
-        if (provided == null || !constantTimeEquals(provided, registerToken)) {
-            writeError(resp, 401, "missing or invalid register token");
-            return false;
-        }
-        return true;
-    }
-
-    private static boolean constantTimeEquals(String a, String b) {
-        byte[] left = a.getBytes(StandardCharsets.UTF_8);
-        byte[] right = b.getBytes(StandardCharsets.UTF_8);
-        if (left.length != right.length) {
-            return MessageDigest.isEqual(left, left) && false;
-        }
-        return MessageDigest.isEqual(left, right);
     }
 
     private static String normalize(String pathInfo) {

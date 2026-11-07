@@ -60,4 +60,13 @@ class DiagConfigTransportTest {
                 () -> DiagConfig.fromEnvironment(Map.of(), List.of("--token")));
         assertTrue(ex.getMessage().contains("--token"));
     }
+
+    @Test
+    void registerUrlDoesNotRequireRegisterToken() {
+        DiagConfig config = DiagConfig.fromEnvironment(
+                Map.of(),
+                List.of("--register-url", "http://gateway:8787", "--service-name", "order"));
+        assertEquals("http://gateway:8787", config.registerUrl().orElseThrow());
+        assertEquals("order", config.serviceName().orElseThrow());
+    }
 }

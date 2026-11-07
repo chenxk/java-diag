@@ -37,7 +37,7 @@ class RegistryServletAuthTest {
         ServletContextHandler context = new ServletContextHandler();
         context.setContextPath("/");
         context.addServlet(
-                new ServletHolder(new RegistryServlet(registry, "reg-secret", json)),
+                new ServletHolder(new RegistryServlet(registry, json)),
                 "/registry/*");
         jetty.setHandler(context);
         jetty.start();
@@ -52,42 +52,42 @@ class RegistryServletAuthTest {
     }
 
     @Test
-    void rejectsMissingRegisterToken() throws Exception {
-        HttpResponse<String> resp = post("/registry/register", """
-                {"instanceId":"a","mcpBaseUrl":"http://127.0.0.1:1"}
-                """, null);
-        assertEquals(401, resp.statusCode());
-    }
-
-    @Test
-    void rejectsNonHttpMcpBaseUrl() throws Exception {
-        HttpResponse<String> resp = post("/registry/register", """
-                {"instanceId":"a","mcpBaseUrl":"file:///etc/passwd"}
-                """, "reg-secret");
-        assertEquals(400, resp.statusCode());
-        assertTrue(resp.body().contains("http"));
-        assertEquals(0, registry.size());
-    }
-
-    @Test
-    void acceptsHttpRegister() throws Exception {
+    void acceptsRegisterWithoutToken() throws Exception {
         HttpResponse<String> resp = post("/registry/register", """
                 {"instanceId":"a","serviceName":"svc","mcpBaseUrl":"http://127.0.0.1:8765","probeToken":"p"}
-                """, "reg-secret");
+                """);
         assertEquals(200, resp.statusCode());
         assertTrue(resp.body().contains("\"ok\":true"));
         assertEquals(1, registry.size());
         assertFalse(registry.get("a").orElseThrow().toPublicMap().containsKey("probeToken"));
     }
 
-    private HttpResponse<String> post(String path, String body, String token) throws Exception {
-        HttpRequest.Builder b = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
+    @Test
+    void rejectsNonHttpMcpBaseUrl() throws Exception {
+        HttpResponse<String> resp = post("/registry/register", """
+                {"instanceId":"a","mcpBaseUrl":"file:///etc/passwd"}
+                """);
+        assertEquals(400, resp.statusCode());
+        assertTrue(resp.body().contains("http"));
+        assertEquals(0, registry.size());
+    }
+
+    @Test
+    void acceptsHeartbeatAndDeregisterWithoutToken() throws Exception {
+        assertEquals(200, post("/registry/register", """
+                {"instanceId":"b","mcpBaseUrl":"http://127.0.0.1:8765"}
+                """).statusCode());
+        assertEquals(200, post("/registry/heartbeat", "{\"instanceId\":\"b\"}").statusCode());
+        assertEquals(200, post("/registry/deregister", "{\"instanceId\":\"b\"}").statusCode());
+        assertEquals(0, registry.size());
+    }
+
+    private HttpResponse<String> post(String path, String body) throws Exception {
+        HttpRequest request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
                 .timeout(Duration.ofSeconds(5))
                 .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(body));
-        if (token != null) {
-            b.header("Authorization", "Bearer " + token);
-        }
-        return HttpClient.newHttpClient().send(b.build(), HttpResponse.BodyHandlers.ofString());
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .build();
+        return HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
     }
 }

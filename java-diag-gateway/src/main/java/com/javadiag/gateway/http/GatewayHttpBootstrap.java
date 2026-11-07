@@ -88,7 +88,7 @@ public final class GatewayHttpBootstrap {
         context.addServlet(streamableHolder, "/mcp/*");
 
         context.addServlet(
-                new ServletHolder(new RegistryServlet(registry, config.registerToken(), json)),
+                new ServletHolder(new RegistryServlet(registry, json)),
                 "/registry/*");
         context.addServlet(new ServletHolder(new HealthServlet()), "/health");
         context.addServlet(new ServletHolder(new RootServlet()), "/");

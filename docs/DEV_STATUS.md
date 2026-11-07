@@ -19,6 +19,7 @@ Maven 父工程 + 两模块：
 |----|------|
 | 独立 gateway 包 | ✅ |
 | Built-in Registry（register/heartbeat/TTL） | ✅ |
+| Registry 无 register-token（信任内网） | ✅ |
 | 探针 `--register-url` 心跳客户端 | ✅ |
 | `diag.list_instances` | ✅ |
 | `target` 代理；多命中返回 candidates | ✅ |

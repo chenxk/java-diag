@@ -104,7 +104,7 @@ public final class JavaDiagMcpServer {
                   java -jar java-diag-mcp-server.jar --port 8765 --token probe-secret
                   java -jar java-diag-mcp-server.jar --port 8765 --token probe-secret \\
                        --service-name order-service --instance-id order-1 --tag env=prod \\
-                       --register-url http://gateway:8787 --register-token reg-secret \\
+                       --register-url http://gateway:8787 \\
                        --advertise-url http://10.0.1.11:8765
                   java -jar java-diag-mcp-server.jar --stdio
 
@@ -112,8 +112,7 @@ public final class JavaDiagMcpServer {
                   --service-name <name>
                   --instance-id <id>
                   --tag key=value              (repeatable)
-                  --register-url <gateway>     enables heartbeat registration
-                  --register-token <token>
+                  --register-url <gateway>     enables heartbeat registration (no register-token; trust intranet)
                   --advertise-url <url>        public base URL registered to gateway
                   --heartbeat-interval-seconds <n>   default 20
                 """);

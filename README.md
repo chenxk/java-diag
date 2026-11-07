@@ -43,9 +43,10 @@ Agent 直连：
 ```bash
 java -jar java-diag-gateway/target/java-diag-gateway.jar \
   --host 0.0.0.0 --port 8787 \
-  --token agent-secret \
-  --register-token reg-secret
+  --token agent-secret
 ```
+
+Registry（`/registry/*`）无共享密钥：信任内网；Agent→Gateway 仍用 `--token`。
 
 ### 2) 启动探针并注册
 
@@ -54,7 +55,6 @@ java -jar java-diag-mcp-server/target/java-diag-mcp-server.jar \
   --host 0.0.0.0 --port 8765 --token probe-secret \
   --service-name order-service --instance-id order-1 --tag env=prod \
   --register-url http://gateway-host:8787 \
-  --register-token reg-secret \
   --advertise-url http://10.0.1.11:8765
 ```
 
@@ -82,6 +82,7 @@ java -jar java-diag-mcp-server/target/java-diag-mcp-server.jar \
 | Gateway | 独立 jar |
 | 直连探针 | 允许 |
 | 多副本 | 返回 candidates，Agent 选 |
+| Registry 鉴权 | 信任内网，无 register-token；Agent→Gateway 保留 `--token` |
 
 详见项目 Agent Store：`docs/CLUSTER_DESIGN.md`。
 
