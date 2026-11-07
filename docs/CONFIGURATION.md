@@ -53,7 +53,7 @@ java -jar java-diag-gateway.jar --help
 | `JAVA_DIAG_TAGS` | string | 空 | 标签，逗号分隔 `key=value` | `JAVA_DIAG_TAGS=env=prod,az=a` |
 | `--tag` | `key=value`（可重复） | — | 追加/覆盖单个标签（CLI 优先合并） | `--tag env=prod --tag az=a` |
 | `JAVA_DIAG_REGISTER_URL` / `--register-url` | URL | 空 | Gateway 根地址；设置后启用心跳注册 | `--register-url http://gateway:8787` |
-| `JAVA_DIAG_REGISTRY_REGISTER_TOKEN` | string | 空 | Gateway 开启 registry token 时，探针向 `/registry/*` 附带 `Authorization: Bearer` 与 `X-Registry-Token` | `JAVA_DIAG_REGISTRY_REGISTER_TOKEN=reg-secret` |
+| `JAVA_DIAG_REGISTRY_REGISTER_TOKEN` / `--register-token` | string | 空 | Gateway 开启 registry token 时，探针向 `/registry/*` 附带 `Authorization: Bearer` 与 `X-Registry-Token`；默认空=不发送（内网信任） | `--register-token reg-secret` |
 | `JAVA_DIAG_ADVERTISE_URL` / `--advertise-url` | URL | 空则推算 `http://{host}:{port}` | 注册到 Gateway 的对外可达 base URL；同时决定实例身份 | `--advertise-url http://10.0.1.11:8765` |
 | `JAVA_DIAG_HEARTBEAT_INTERVAL_SECONDS` / `--heartbeat-interval-seconds` | long（秒） | `20` | 心跳间隔；运行时会 `max(5, value)` | `--heartbeat-interval-seconds 15` |
 
@@ -79,6 +79,7 @@ java -jar java-diag-mcp-server.jar \
   --port 8765 --token probe-secret \
   --service-name order-service --tag env=prod \
   --register-url http://gateway-host:8787 \
+  --register-token reg-secret \
   --advertise-url http://10.0.1.11:8765
 
 # 同上，省略 --service-name（默认主 IP）；instanceId 仍为 10.0.1.11:8765

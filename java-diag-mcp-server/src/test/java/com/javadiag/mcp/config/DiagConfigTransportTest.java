@@ -68,6 +68,39 @@ class DiagConfigTransportTest {
                 List.of("--register-url", "http://gateway:8787", "--service-name", "order"));
         assertEquals("http://gateway:8787", config.registerUrl().orElseThrow());
         assertEquals("order", config.serviceName());
+        assertTrue(config.registryRegisterToken().isEmpty());
+    }
+
+    @Test
+    void parsesRegisterTokenFromCli() {
+        DiagConfig config = DiagConfig.fromEnvironment(
+                Map.of(),
+                List.of("--register-token", "reg-secret", "--register-url", "http://gateway:8787"));
+        assertEquals("reg-secret", config.registryRegisterToken().orElseThrow());
+    }
+
+    @Test
+    void cliRegisterTokenOverridesEnv() {
+        DiagConfig config = DiagConfig.fromEnvironment(
+                Map.of(DiagConfig.ENV_REGISTRY_REGISTER_TOKEN, "from-env"),
+                List.of("--register-token", "from-cli"));
+        assertEquals("from-cli", config.registryRegisterToken().orElseThrow());
+    }
+
+    @Test
+    void parsesRegisterTokenFromEnvWhenCliAbsent() {
+        DiagConfig config = DiagConfig.fromEnvironment(
+                Map.of(DiagConfig.ENV_REGISTRY_REGISTER_TOKEN, "env-reg"),
+                List.of());
+        assertEquals("env-reg", config.registryRegisterToken().orElseThrow());
+    }
+
+    @Test
+    void registerTokenFlagRequiresValue() {
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> DiagConfig.fromEnvironment(Map.of(), List.of("--register-token")));
+        assertTrue(ex.getMessage().contains("--register-token"));
     }
 
     @Test

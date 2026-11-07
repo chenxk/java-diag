@@ -173,6 +173,7 @@ public final class DiagConfig {
                 case "--token", "--auth-token" -> authToken = Optional.of(requireValue(cliArgs, ++i, arg));
                 case "--service-name" -> serviceNameOpt = Optional.of(requireValue(cliArgs, ++i, arg));
                 case "--register-url" -> registerUrl = Optional.of(requireValue(cliArgs, ++i, arg));
+                case "--register-token" -> registryRegisterToken = Optional.of(requireValue(cliArgs, ++i, arg));
                 case "--advertise-url" -> advertiseUrl = Optional.of(requireValue(cliArgs, ++i, arg));
                 case "--heartbeat-interval-seconds" ->
                         heartbeatInterval = Long.parseLong(requireValue(cliArgs, ++i, arg));
