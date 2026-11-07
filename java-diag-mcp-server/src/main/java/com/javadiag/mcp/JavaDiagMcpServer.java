@@ -1,5 +1,6 @@
 package com.javadiag.mcp;
 
+import com.javadiag.mcp.cluster.RegistryHeartbeatClient;
 import com.javadiag.mcp.config.DiagConfig;
 import com.javadiag.mcp.http.HttpMcpServerBootstrap;
 import com.javadiag.mcp.mcp.ToolRegistrar;
@@ -15,7 +16,8 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Entry point: MCP server over HTTP (cloud IP:port) or stdio (local IDE).
+ * Entry point: MCP probe over HTTP (cloud IP:port) or stdio (local IDE).
+ * Optional gateway registry heartbeat when --register-url is set.
  */
 public final class JavaDiagMcpServer {
 
@@ -45,7 +47,12 @@ public final class JavaDiagMcpServer {
     private static void startHttp(DiagConfig config, ToolRegistrar registrar, JsonCodec codec) throws Exception {
         HttpMcpServerBootstrap bootstrap = new HttpMcpServerBootstrap(config, registrar, codec);
         bootstrap.start();
-        Runtime.getRuntime().addShutdownHook(new Thread(bootstrap::stop, "java-diag-shutdown"));
+        RegistryHeartbeatClient heartbeat = new RegistryHeartbeatClient(config, codec);
+        heartbeat.start();
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            heartbeat.stop();
+            bootstrap.stop();
+        }, "java-diag-shutdown"));
         bootstrap.await();
     }
 
@@ -88,42 +95,27 @@ public final class JavaDiagMcpServer {
 
     private static void printHelp() {
         System.out.println("""
-                java-diag MCP server
+                java-diag MCP probe
 
-                Default transport: HTTP (Agent connects via IP:port)
+                Default transport: HTTP (Agent or Gateway connects via IP:port)
                 Local IDE fallback: --stdio
 
                 Usage:
-                  java -jar java-diag-mcp-server.jar
-                  java -jar java-diag-mcp-server.jar --http --host 0.0.0.0 --port 8765 --token my-secret
+                  java -jar java-diag-mcp-server.jar --port 8765 --token probe-secret
+                  java -jar java-diag-mcp-server.jar --port 8765 --token probe-secret \\
+                       --service-name order-service --instance-id order-1 --tag env=prod \\
+                       --register-url http://gateway:8787 --register-token reg-secret \\
+                       --advertise-url http://10.0.1.11:8765
                   java -jar java-diag-mcp-server.jar --stdio
-                  java -jar java-diag-mcp-server.jar --list-tools
-                  java -jar java-diag-mcp-server.jar --help
 
-                Flags:
-                  --http | --stdio
-                  --host <addr>          bind address (default 0.0.0.0)
-                  --port <port>          listen port (default 8765)
-                  --token <value>        Bearer auth token (alias: --auth-token); overrides env
-
-                Remote endpoints (HTTP mode):
-                  GET  /sse            MCP SSE
-                  POST /mcp/message    MCP SSE messages
-                  *    /mcp            MCP Streamable HTTP
-                  GET  /health         liveness
-
-                Environment:
-                  JAVA_DIAG_TRANSPORT                 http (default) | stdio
-                  JAVA_DIAG_HTTP_HOST                 bind address (default 0.0.0.0)
-                  JAVA_DIAG_HTTP_PORT                 listen port (default 8765)
-                  JAVA_DIAG_AUTH_TOKEN                Bearer token (overridden by --token)
-                  JAVA_DIAG_ALLOWED_LOG_DIRS          comma-separated whitelist roots
-                  JAVA_DIAG_ALLOWED_MAIN_CLASS_REGEX  optional main-class allow regex
-                  JAVA_DIAG_TOOL_TIMEOUT_MS           default tool timeout (ms)
-                  JAVA_DIAG_MAX_OUTPUT_BYTES          max captured output bytes
-                  JAVA_DIAG_DANGEROUS_TOOLS_ENABLED   allow live=true histo (default false)
-                  JAVA_DIAG_AUDIT_PATH                audit JSONL path
-                  JAVA_DIAG_INSTANCE_ID               instance id in envelopes
+                Cluster flags:
+                  --service-name <name>
+                  --instance-id <id>
+                  --tag key=value              (repeatable)
+                  --register-url <gateway>     enables heartbeat registration
+                  --register-token <token>
+                  --advertise-url <url>        public base URL registered to gateway
+                  --heartbeat-interval-seconds <n>   default 20
                 """);
     }
 }

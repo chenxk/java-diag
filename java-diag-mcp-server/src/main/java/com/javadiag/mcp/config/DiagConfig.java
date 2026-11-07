@@ -5,8 +5,10 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -26,12 +28,19 @@ public final class DiagConfig {
     public static final String ENV_HTTP_HOST = "JAVA_DIAG_HTTP_HOST";
     public static final String ENV_HTTP_PORT = "JAVA_DIAG_HTTP_PORT";
     public static final String ENV_AUTH_TOKEN = "JAVA_DIAG_AUTH_TOKEN";
+    public static final String ENV_SERVICE_NAME = "JAVA_DIAG_SERVICE_NAME";
+    public static final String ENV_REGISTER_URL = "JAVA_DIAG_REGISTER_URL";
+    public static final String ENV_REGISTER_TOKEN = "JAVA_DIAG_REGISTER_TOKEN";
+    public static final String ENV_ADVERTISE_URL = "JAVA_DIAG_ADVERTISE_URL";
+    public static final String ENV_HEARTBEAT_INTERVAL = "JAVA_DIAG_HEARTBEAT_INTERVAL_SECONDS";
+    public static final String ENV_TAGS = "JAVA_DIAG_TAGS";
 
     private static final long DEFAULT_TIMEOUT_MS = 15_000L;
     private static final long DEFAULT_DUMP_TIMEOUT_MS = 30_000L;
     private static final int DEFAULT_MAX_OUTPUT_BYTES = 256 * 1024;
     private static final String DEFAULT_HTTP_HOST = "0.0.0.0";
     private static final int DEFAULT_HTTP_PORT = 8765;
+    private static final long DEFAULT_HEARTBEAT_INTERVAL = 20L;
 
     public enum Transport {
         HTTP,
@@ -51,6 +60,12 @@ public final class DiagConfig {
     private final String httpHost;
     private final int httpPort;
     private final Optional<String> authToken;
+    private final Optional<String> serviceName;
+    private final Optional<String> registerUrl;
+    private final Optional<String> registerToken;
+    private final Optional<String> advertiseUrl;
+    private final long heartbeatIntervalSeconds;
+    private final Map<String, String> tags;
 
     private DiagConfig(
             List<Path> allowedLogDirs,
@@ -65,7 +80,13 @@ public final class DiagConfig {
             Transport transport,
             String httpHost,
             int httpPort,
-            Optional<String> authToken) {
+            Optional<String> authToken,
+            Optional<String> serviceName,
+            Optional<String> registerUrl,
+            Optional<String> registerToken,
+            Optional<String> advertiseUrl,
+            long heartbeatIntervalSeconds,
+            Map<String, String> tags) {
         this.allowedLogDirs = List.copyOf(allowedLogDirs);
         this.allowedMainClassRegex = allowedMainClassRegex;
         this.toolTimeoutMs = toolTimeoutMs;
@@ -79,6 +100,12 @@ public final class DiagConfig {
         this.httpHost = httpHost;
         this.httpPort = httpPort;
         this.authToken = authToken;
+        this.serviceName = serviceName;
+        this.registerUrl = registerUrl;
+        this.registerToken = registerToken;
+        this.advertiseUrl = advertiseUrl;
+        this.heartbeatIntervalSeconds = heartbeatIntervalSeconds;
+        this.tags = Map.copyOf(tags);
     }
 
     public static DiagConfig fromEnvironment() {
@@ -121,43 +148,49 @@ public final class DiagConfig {
                 .filter(s -> !s.isBlank())
                 .orElse(DEFAULT_HTTP_HOST);
         int httpPort = (int) parseLong(env.get(ENV_HTTP_PORT), DEFAULT_HTTP_PORT);
-        Optional<String> authToken = Optional.ofNullable(env.get(ENV_AUTH_TOKEN))
-                .filter(s -> !s.isBlank());
+        Optional<String> authToken = Optional.ofNullable(env.get(ENV_AUTH_TOKEN)).filter(s -> !s.isBlank());
+        Optional<String> serviceName = Optional.ofNullable(env.get(ENV_SERVICE_NAME)).filter(s -> !s.isBlank());
+        Optional<String> registerUrl = Optional.ofNullable(env.get(ENV_REGISTER_URL)).filter(s -> !s.isBlank());
+        Optional<String> registerToken = Optional.ofNullable(env.get(ENV_REGISTER_TOKEN)).filter(s -> !s.isBlank());
+        Optional<String> advertiseUrl = Optional.ofNullable(env.get(ENV_ADVERTISE_URL)).filter(s -> !s.isBlank());
+        long heartbeatInterval = parseLong(env.get(ENV_HEARTBEAT_INTERVAL), DEFAULT_HEARTBEAT_INTERVAL);
+        Map<String, String> tags = parseTags(env.get(ENV_TAGS));
 
-        // CLI overrides
         for (int i = 0; i < cliArgs.size(); i++) {
             String arg = cliArgs.get(i);
             switch (arg) {
                 case "--stdio" -> transport = Transport.STDIO;
                 case "--http" -> transport = Transport.HTTP;
-                case "--host" -> {
-                    if (i + 1 < cliArgs.size()) {
-                        httpHost = cliArgs.get(++i);
+                case "--host" -> httpHost = requireValue(cliArgs, ++i, arg);
+                case "--port" -> httpPort = Integer.parseInt(requireValue(cliArgs, ++i, arg));
+                case "--token", "--auth-token" -> authToken = Optional.of(requireValue(cliArgs, ++i, arg));
+                case "--instance-id" -> instanceId = requireValue(cliArgs, ++i, arg);
+                case "--service-name" -> serviceName = Optional.of(requireValue(cliArgs, ++i, arg));
+                case "--register-url" -> registerUrl = Optional.of(requireValue(cliArgs, ++i, arg));
+                case "--register-token" -> registerToken = Optional.of(requireValue(cliArgs, ++i, arg));
+                case "--advertise-url" -> advertiseUrl = Optional.of(requireValue(cliArgs, ++i, arg));
+                case "--heartbeat-interval-seconds" ->
+                        heartbeatInterval = Long.parseLong(requireValue(cliArgs, ++i, arg));
+                case "--tag" -> {
+                    String kv = requireValue(cliArgs, ++i, arg);
+                    int eq = kv.indexOf('=');
+                    if (eq <= 0) {
+                        throw new IllegalArgumentException("--tag requires key=value, got: " + kv);
                     }
-                }
-                case "--port" -> {
-                    if (i + 1 < cliArgs.size()) {
-                        httpPort = Integer.parseInt(cliArgs.get(++i));
-                    }
-                }
-                case "--token", "--auth-token" -> {
-                    if (i + 1 >= cliArgs.size() || cliArgs.get(i + 1).startsWith("-")) {
-                        throw new IllegalArgumentException(arg + " requires a value");
-                    }
-                    String value = cliArgs.get(++i);
-                    if (value.isBlank()) {
-                        throw new IllegalArgumentException(arg + " must not be blank");
-                    }
-                    authToken = Optional.of(value);
+                    Map<String, String> mutable = new LinkedHashMap<>(tags);
+                    mutable.put(kv.substring(0, eq), kv.substring(eq + 1));
+                    tags = mutable;
                 }
                 default -> {
-                    // ignore unknown here; main handles --help/--list-tools
                 }
             }
         }
 
         if (httpPort < 1 || httpPort > 65535) {
             throw new IllegalArgumentException("http port out of range: " + httpPort);
+        }
+        if (registerUrl.isPresent() && registerToken.isEmpty()) {
+            throw new IllegalArgumentException("--register-url requires --register-token");
         }
 
         return new DiagConfig(
@@ -173,7 +206,43 @@ public final class DiagConfig {
                 transport,
                 httpHost,
                 httpPort,
-                authToken);
+                authToken,
+                serviceName,
+                registerUrl,
+                registerToken,
+                advertiseUrl,
+                heartbeatInterval,
+                tags);
+    }
+
+    private static String requireValue(List<String> args, int index, String flag) {
+        if (index >= args.size() || args.get(index).startsWith("-")) {
+            throw new IllegalArgumentException(flag + " requires a value");
+        }
+        String v = args.get(index);
+        if (v.isBlank()) {
+            throw new IllegalArgumentException(flag + " must not be blank");
+        }
+        return v;
+    }
+
+    private static Map<String, String> parseTags(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return Map.of();
+        }
+        Map<String, String> map = new LinkedHashMap<>();
+        for (String part : raw.split(",")) {
+            String item = part.trim();
+            if (item.isEmpty()) {
+                continue;
+            }
+            int eq = item.indexOf('=');
+            if (eq <= 0) {
+                continue;
+            }
+            map.put(item.substring(0, eq).trim(), item.substring(eq + 1).trim());
+        }
+        return map;
     }
 
     private static Transport parseTransport(String raw, Transport defaultValue) {
@@ -290,5 +359,29 @@ public final class DiagConfig {
 
     public Optional<String> authToken() {
         return authToken;
+    }
+
+    public Optional<String> serviceName() {
+        return serviceName;
+    }
+
+    public Optional<String> registerUrl() {
+        return registerUrl;
+    }
+
+    public Optional<String> registerToken() {
+        return registerToken;
+    }
+
+    public Optional<String> advertiseUrl() {
+        return advertiseUrl;
+    }
+
+    public long heartbeatIntervalSeconds() {
+        return heartbeatIntervalSeconds;
+    }
+
+    public Map<String, String> tags() {
+        return tags;
     }
 }
