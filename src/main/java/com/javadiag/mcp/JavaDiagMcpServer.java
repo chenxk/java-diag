@@ -95,10 +95,16 @@ public final class JavaDiagMcpServer {
 
                 Usage:
                   java -jar java-diag-mcp-server.jar
-                  java -jar java-diag-mcp-server.jar --http --host 0.0.0.0 --port 8765
+                  java -jar java-diag-mcp-server.jar --http --host 0.0.0.0 --port 8765 --token my-secret
                   java -jar java-diag-mcp-server.jar --stdio
                   java -jar java-diag-mcp-server.jar --list-tools
                   java -jar java-diag-mcp-server.jar --help
+
+                Flags:
+                  --http | --stdio
+                  --host <addr>          bind address (default 0.0.0.0)
+                  --port <port>          listen port (default 8765)
+                  --token <value>        Bearer auth token (alias: --auth-token); overrides env
 
                 Remote endpoints (HTTP mode):
                   GET  /sse            MCP SSE
@@ -110,7 +116,7 @@ public final class JavaDiagMcpServer {
                   JAVA_DIAG_TRANSPORT                 http (default) | stdio
                   JAVA_DIAG_HTTP_HOST                 bind address (default 0.0.0.0)
                   JAVA_DIAG_HTTP_PORT                 listen port (default 8765)
-                  JAVA_DIAG_AUTH_TOKEN                optional Bearer token for remote access
+                  JAVA_DIAG_AUTH_TOKEN                Bearer token (overridden by --token)
                   JAVA_DIAG_ALLOWED_LOG_DIRS          comma-separated whitelist roots
                   JAVA_DIAG_ALLOWED_MAIN_CLASS_REGEX  optional main-class allow regex
                   JAVA_DIAG_TOOL_TIMEOUT_MS           default tool timeout (ms)

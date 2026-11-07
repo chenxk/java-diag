@@ -24,13 +24,14 @@ java -jar target/java-diag-mcp-server.jar --list-tools
 
 ## 云端部署（HTTP / IP:端口）— 默认模式
 
-在目标机器启动：
+在目标机器启动（推荐用命令行指定 token）：
 
 ```bash
-export JAVA_DIAG_AUTH_TOKEN='replace-me'
 export JAVA_DIAG_ALLOWED_LOG_DIRS='/var/log/app,/home/app/logs'
-java -jar java-diag-mcp-server.jar --host 0.0.0.0 --port 8765
+java -jar java-diag-mcp-server.jar --host 0.0.0.0 --port 8765 --token replace-me
 ```
+
+也可用环境变量 `JAVA_DIAG_AUTH_TOKEN`；若同时提供，**命令行 `--token` / `--auth-token` 优先**。
 
 监听地址默认 `0.0.0.0:8765`。端点：
 
@@ -104,7 +105,7 @@ java -jar java-diag-mcp-server.jar --stdio
 | `JAVA_DIAG_TRANSPORT` | `http` 或 `stdio` | `http` |
 | `JAVA_DIAG_HTTP_HOST` | 绑定地址 | `0.0.0.0` |
 | `JAVA_DIAG_HTTP_PORT` | 监听端口 | `8765` |
-| `JAVA_DIAG_AUTH_TOKEN` | 远程 Bearer token | 空（不推荐） |
+| `JAVA_DIAG_AUTH_TOKEN` | 远程 Bearer token（可被 `--token` 覆盖） | 空（不推荐） |
 | `JAVA_DIAG_ALLOWED_LOG_DIRS` | 日志路径白名单 | `.` / `$HOME` / `/tmp` / `/var/log` |
 | `JAVA_DIAG_ALLOWED_MAIN_CLASS_REGEX` | 可选 main class 限制 | 不限制 |
 | `JAVA_DIAG_TOOL_TIMEOUT_MS` | 普通工具超时 | `15000` |

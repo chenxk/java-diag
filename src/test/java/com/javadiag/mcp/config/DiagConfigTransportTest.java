@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DiagConfigTransportTest {
 
@@ -33,5 +35,29 @@ class DiagConfigTransportTest {
         assertEquals(DiagConfig.Transport.HTTP, config.transport());
         assertEquals("127.0.0.1", config.httpHost());
         assertEquals(9999, config.httpPort());
+    }
+
+    @Test
+    void cliTokenOverridesEnv() {
+        DiagConfig config = DiagConfig.fromEnvironment(
+                Map.of(DiagConfig.ENV_AUTH_TOKEN, "from-env"),
+                List.of("--token", "from-cli"));
+        assertEquals("from-cli", config.authToken().orElseThrow());
+    }
+
+    @Test
+    void authTokenAliasWorks() {
+        DiagConfig config = DiagConfig.fromEnvironment(
+                Map.of(),
+                List.of("--auth-token", "alias-secret"));
+        assertEquals("alias-secret", config.authToken().orElseThrow());
+    }
+
+    @Test
+    void tokenFlagRequiresValue() {
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> DiagConfig.fromEnvironment(Map.of(), List.of("--token")));
+        assertTrue(ex.getMessage().contains("--token"));
     }
 }

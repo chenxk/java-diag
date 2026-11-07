@@ -15,7 +15,7 @@
 | HTTP（默认） | `java -jar ... --port 8765` | 云端部署；`/sse`、`/mcp`、`/health` |
 | stdio | `java -jar ... --stdio` | 本机 IDE |
 
-可选 `JAVA_DIAG_AUTH_TOKEN`（Bearer）保护远程端点；`/health` 除外。
+可选 Bearer 鉴权：启动参数 `--token` / `--auth-token`，或环境变量 `JAVA_DIAG_AUTH_TOKEN`（CLI 优先）；`/health` 除外。
 
 ## 已完成工具
 

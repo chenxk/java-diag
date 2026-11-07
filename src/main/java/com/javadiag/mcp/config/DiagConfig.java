@@ -140,6 +140,16 @@ public final class DiagConfig {
                         httpPort = Integer.parseInt(cliArgs.get(++i));
                     }
                 }
+                case "--token", "--auth-token" -> {
+                    if (i + 1 >= cliArgs.size() || cliArgs.get(i + 1).startsWith("-")) {
+                        throw new IllegalArgumentException(arg + " requires a value");
+                    }
+                    String value = cliArgs.get(++i);
+                    if (value.isBlank()) {
+                        throw new IllegalArgumentException(arg + " must not be blank");
+                    }
+                    authToken = Optional.of(value);
+                }
                 default -> {
                     // ignore unknown here; main handles --help/--list-tools
                 }
