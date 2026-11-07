@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -76,10 +77,9 @@ public final class RegistryServlet extends HttpServlet {
     }
 
     private void handleRegister(Map<String, Object> payload, HttpServletResponse resp) throws IOException {
-        String instanceId = str(payload.get("instanceId"));
         String mcpBaseUrl = str(payload.get("mcpBaseUrl"));
-        if (instanceId == null || mcpBaseUrl == null) {
-            writeError(resp, 400, "instanceId and mcpBaseUrl are required");
+        if (mcpBaseUrl == null) {
+            writeError(resp, 400, "mcpBaseUrl is required");
             return;
         }
         String scheme = mcpBaseUrl.toLowerCase(java.util.Locale.ROOT);
@@ -87,9 +87,27 @@ public final class RegistryServlet extends HttpServlet {
             writeError(resp, 400, "mcpBaseUrl must be http:// or https://");
             return;
         }
+        // Prefer client-supplied instanceId; else derive host:port from advertise mcpBaseUrl.
+        String instanceId = str(payload.get("instanceId"));
+        if (instanceId == null) {
+            instanceId = instanceIdFromMcpBaseUrl(mcpBaseUrl);
+            if (instanceId == null) {
+                writeError(resp, 400, "instanceId missing and could not be derived from mcpBaseUrl");
+                return;
+            }
+        }
         String serviceName = str(payload.get("serviceName"));
         String host = str(payload.get("host"));
         int port = payload.get("port") instanceof Number n ? n.intValue() : 0;
+        if (host == null || port <= 0) {
+            HostPort derived = hostPortFromMcpBaseUrl(mcpBaseUrl);
+            if (host == null) {
+                host = derived == null ? "" : derived.host();
+            }
+            if (port <= 0) {
+                port = derived == null ? 0 : derived.port();
+            }
+        }
         String ssePath = str(payload.get("ssePath"));
         String mcpPath = str(payload.get("mcpPath"));
         String probeToken = str(payload.get("probeToken"));
@@ -112,6 +130,31 @@ public final class RegistryServlet extends HttpServlet {
                 ProbeStatus.HEALTHY);
         registry.register(instance);
         writeJson(resp, 200, Map.of("ok", true, "instanceId", instanceId));
+    }
+
+    static String instanceIdFromMcpBaseUrl(String mcpBaseUrl) {
+        HostPort hp = hostPortFromMcpBaseUrl(mcpBaseUrl);
+        return hp == null ? null : hp.host() + ":" + hp.port();
+    }
+
+    private record HostPort(String host, int port) {
+    }
+
+    static HostPort hostPortFromMcpBaseUrl(String mcpBaseUrl) {
+        try {
+            URI uri = URI.create(mcpBaseUrl);
+            String host = uri.getHost();
+            if (host == null || host.isBlank()) {
+                return null;
+            }
+            int port = uri.getPort();
+            if (port < 0) {
+                port = "https".equalsIgnoreCase(uri.getScheme()) ? 443 : 80;
+            }
+            return new HostPort(host, port);
+        } catch (Exception ex) {
+            return null;
+        }
     }
 
     private void handleHeartbeat(Map<String, Object> payload, HttpServletResponse resp) throws IOException {

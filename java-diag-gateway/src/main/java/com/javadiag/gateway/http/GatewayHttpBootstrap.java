@@ -133,7 +133,7 @@ public final class GatewayHttpBootstrap {
     private McpSyncServer buildMcp(io.modelcontextprotocol.spec.McpServerTransportProvider transport) {
         return McpServer.sync(transport)
                 .serverInfo("java-diag-gateway", config.version())
-                .instructions("Cluster gateway. Use diag.list_instances then pass target.instanceId for tools.")
+                .instructions("Cluster gateway. Use diag.list_instances then pass target.instanceId (advertise host:port) or target.mcpBaseUrl for tools.")
                 .capabilities(McpSchema.ServerCapabilities.builder().tools(true).build())
                 .strictToolNameValidation(false)
                 .jsonMapper(json.mapper())
@@ -144,7 +144,7 @@ public final class GatewayHttpBootstrap {
     private McpSyncServer buildMcp(io.modelcontextprotocol.spec.McpStreamableServerTransportProvider transport) {
         return McpServer.sync(transport)
                 .serverInfo("java-diag-gateway", config.version())
-                .instructions("Cluster gateway. Use diag.list_instances then pass target.instanceId for tools.")
+                .instructions("Cluster gateway. Use diag.list_instances then pass target.instanceId (advertise host:port) or target.mcpBaseUrl for tools.")
                 .capabilities(McpSchema.ServerCapabilities.builder().tools(true).build())
                 .strictToolNameValidation(false)
                 .jsonMapper(json.mapper())

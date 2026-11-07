@@ -50,7 +50,8 @@ public final class JavaDiagGateway {
                                                     (JAVA_DIAG_HEARTBEAT_TTL_SECONDS)
 
                 Env-only:
-                  JAVA_DIAG_INSTANCE_ID             default gateway-{pid}
+                  JAVA_DIAG_INSTANCE_ID             gateway self envelope id (default gateway-{pid});
+                                                    not used for probe routing (probes use advertise host:port)
 
                 Registry (/registry/*) has no shared-secret auth (trust intranet).
                 Keep the gateway registry port off the public internet.

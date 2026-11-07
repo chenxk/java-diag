@@ -23,6 +23,7 @@ Maven 父工程 + 两模块：
 | 探针 `--register-url` 心跳客户端 | ✅ |
 | `diag.list_instances` | ✅ |
 | `target` 代理；多命中返回 candidates | ✅ |
+| 探针无独立 instance-id；身份 = advertise host:port | ✅ |
 | 允许 Agent 直连探针 | ✅（设计 + 行为） |
 | Nacos | ❌ P2 |
 

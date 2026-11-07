@@ -82,6 +82,16 @@ class RegistryServletAuthTest {
         assertEquals(0, registry.size());
     }
 
+    @Test
+    void derivesInstanceIdFromMcpBaseUrlWhenOmitted() throws Exception {
+        HttpResponse<String> resp = post("/registry/register", """
+                {"serviceName":"svc","mcpBaseUrl":"http://10.0.1.11:8765","probeToken":"p"}
+                """);
+        assertEquals(200, resp.statusCode());
+        assertTrue(resp.body().contains("10.0.1.11:8765"));
+        assertTrue(registry.get("10.0.1.11:8765").isPresent());
+    }
+
     private HttpResponse<String> post(String path, String body) throws Exception {
         HttpRequest request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
                 .timeout(Duration.ofSeconds(5))
