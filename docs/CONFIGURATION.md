@@ -85,32 +85,63 @@ java -jar java-diag-mcp-server.jar --stdio
 
 ## 2. 网关 Gateway（`java-diag-gateway`）
 
-Gateway 仅 HTTP（无 stdio）。Agent→Gateway 用 token；`/registry/*` **不做**共享密钥校验（信任内网，勿对公网暴露）。
+Gateway **仅 HTTP**（无 stdio / 无 `JAVA_DIAG_TRANSPORT`）。  
+Agent→Gateway 用 Bearer token；`/registry/*` 与 `/health` **不做**共享密钥校验（信任内网，勿对公网暴露 Registry 端口）。
+
+### 2.1 HTTP 与鉴权
 
 | 名称 | 类型 | 默认值 | 含义 | 示例 |
 |------|------|--------|------|------|
 | `JAVA_DIAG_HTTP_HOST` / `--host` | string | `0.0.0.0` | HTTP 监听地址 | `--host 0.0.0.0` |
 | `JAVA_DIAG_HTTP_PORT` / `--port` | int `1..65535` | `8787` | HTTP 监听端口 | `--port 8787` |
-| `JAVA_DIAG_AUTH_TOKEN` / `--token` / `--auth-token` | string | 空（不鉴权） | Agent Bearer token；未设置时启动 WARNING | `--token agent-secret` |
-| `JAVA_DIAG_HEARTBEAT_TTL_SECONDS` / `--heartbeat-ttl-seconds` | long（秒） | `90` | 注册表心跳 TTL；必须 `>= 5`；超时未心跳则实例过期 | `--heartbeat-ttl-seconds 90` |
+| `JAVA_DIAG_AUTH_TOKEN` / `--token` / `--auth-token` | string | 空（不鉴权） | Agent Bearer token（保护 `/sse`、`/mcp`）；未设置时启动 WARNING | `--token agent-secret` |
+
+### 2.2 注册表 TTL 与实例标识
+
+| 名称 | 类型 | 默认值 | 含义 | 示例 |
+|------|------|--------|------|------|
+| `JAVA_DIAG_HEARTBEAT_TTL_SECONDS` / `--heartbeat-ttl-seconds` | long（秒） | `90` | 探针心跳 TTL；必须 `>= 5`；超时未心跳则实例过期/不可路由 | `--heartbeat-ttl-seconds 90` |
 | `JAVA_DIAG_INSTANCE_ID` | string | `gateway-{pid}` | Gateway 自身 instanceId（工具 envelope）；**仅环境变量，无 CLI** | `JAVA_DIAG_INSTANCE_ID=gw-1` |
-| `--help` / `-h` | flag | — | 打印帮助并退出 | `--help` |
 
-> 探针心跳间隔应明显小于 Gateway TTL（例如间隔 20s、TTL 90s）。
+> 探针心跳间隔应明显小于 Gateway TTL（例如探针 `20s`、Gateway TTL `90s`）。
 
-### 2.1 端点
+### 2.3 固定超时（无 env/CLI）
 
-| 路径 | 用途 |
+代理调用探针时使用代码内常量（见 `GatewayToolRegistrar` / `ProbeMcpClient`）：
+
+| 项 | 默认值 | 含义 |
+|----|--------|------|
+| probe request timeout | `60s` | 单次工具调用请求超时 |
+| probe connect timeout | `10s` | 连接探针 SSE/HTTP 超时 |
+| probe initialization timeout | `15s` | MCP initialize 超时 |
+
+### 2.4 其它 CLI
+
+| 名称 | 含义 |
 |------|------|
-| `/sse`、`/mcp` | Agent MCP（受 `--token` 保护，若已配置） |
-| `/registry/*` | 探针 register / heartbeat / deregister / instances（无共享密钥） |
-| `/health` | 存活探测 |
+| `--help` / `-h` | 打印帮助并退出 |
 
-### 2.2 Gateway 示例
+### 2.5 端点
+
+| 路径 | 用途 | 鉴权 |
+|------|------|------|
+| `/sse`、`/mcp` | Agent MCP（含 `diag.list_instances` 与代理工具） | 若配置了 token，需 `Authorization: Bearer …` |
+| `/registry/*` | 探针 register / heartbeat / deregister / instances | 无共享密钥（信任内网） |
+| `/health` | 存活探测 | 无 |
+
+### 2.6 Gateway 示例
 
 ```bash
+# 推荐：设置 Agent token + TTL
 export JAVA_DIAG_HEARTBEAT_TTL_SECONDS=90
-java -jar java-diag-gateway.jar --host 0.0.0.0 --port 8787 --token agent-secret
+export JAVA_DIAG_INSTANCE_ID=gw-1
+java -jar java-diag-gateway.jar \
+  --host 0.0.0.0 --port 8787 --token agent-secret
+
+# 等价 CLI
+java -jar java-diag-gateway.jar \
+  --host 0.0.0.0 --port 8787 --token agent-secret \
+  --heartbeat-ttl-seconds 90
 ```
 
 ---
