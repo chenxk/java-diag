@@ -132,7 +132,7 @@ class DiagConfigPropertiesTest {
         assertEquals(9999, config.httpPort());
         assertEquals("probe-token", config.authToken().orElseThrow());
         assertEquals(1, config.allowedLogDirs().size());
-        assertEquals(logDir.toAbsolutePath().normalize(), config.allowedLogDirs().getFirst());
+        assertEquals(logDir.toAbsolutePath().normalize(), config.allowedLogDirs().get(0));
         assertTrue(config.allowedMainClassRegex().isPresent());
         assertEquals(12_000L, config.toolTimeoutMs());
         assertEquals(25_000L, config.dumpTimeoutMs());
@@ -148,7 +148,7 @@ class DiagConfigPropertiesTest {
         assertEquals("prod", config.tags().get("env"));
         assertEquals("a", config.tags().get("zone"));
         assertEquals(1, config.appNameMapper().rules().size());
-        assertEquals("order", config.appNameMapper().rules().getFirst().serviceName());
+        assertEquals("order", config.appNameMapper().rules().get(0).serviceName());
         assertEquals("10.0.0.2:9999", config.instanceId());
     }
 }
