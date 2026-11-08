@@ -119,14 +119,87 @@ public final class JavaProcessService {
         if (OsPlatform.hasProcFs()) {
             List<JavaProcessInfo> fromProc = scanProc();
             if (!fromProc.isEmpty()) {
-                return fromProc;
+                return filterAndEnrich(fromProc);
             }
         }
         List<JavaProcessInfo> fromJps = scanJps();
         if (!fromJps.isEmpty()) {
-            return fromJps;
+            return filterAndEnrich(fromJps);
         }
-        return scanProcessHandles();
+        return filterAndEnrich(scanProcessHandles());
+    }
+
+    /**
+     * True when the process has an identifiable JVM entry point (jar or main class), not merely {@code java.exe}.
+     */
+    public static boolean isReportableJvm(JavaProcessInfo info) {
+        if (info == null) {
+            return false;
+        }
+        String main = normalizeMainToken(info.mainClassOrJar());
+        if (isJavaMainToken(main)) {
+            return true;
+        }
+        return isJavaMainToken(extractMain(info.commandLine()));
+    }
+
+    static JavaProcessInfo enrichMainFromCommandLine(JavaProcessInfo info) {
+        if (info == null) {
+            return info;
+        }
+        String main = normalizeMainToken(info.mainClassOrJar());
+        if (isJavaMainToken(main)) {
+            if (main.equals(info.mainClassOrJar())) {
+                return info;
+            }
+            return copyWithMain(info, main);
+        }
+        String fromCmd = extractMain(info.commandLine());
+        if (isJavaMainToken(fromCmd)) {
+            return copyWithMain(info, fromCmd);
+        }
+        return info;
+    }
+
+    private static JavaProcessInfo copyWithMain(JavaProcessInfo info, String main) {
+        String cmd = info.commandLine();
+        if (cmd == null || cmd.isBlank()) {
+            cmd = main;
+        }
+        return new JavaProcessInfo(
+                info.pid(), main, main, info.user(), info.startTimeEpochMs(), info.rssKb(), cmd);
+    }
+
+    private static String normalizeMainToken(String main) {
+        if (main == null || main.isBlank()) {
+            return "";
+        }
+        String token = main.trim();
+        if (OsPlatform.looksLikeJavaBinary(token)) {
+            return "";
+        }
+        String lower = token.toLowerCase(Locale.ROOT);
+        if (lower.endsWith("\\java.exe") || lower.endsWith("/java.exe") || lower.equals("java.exe")) {
+            return "";
+        }
+        if (lower.endsWith("\\javaw.exe") || lower.endsWith("/javaw.exe") || lower.equals("javaw.exe")) {
+            return "";
+        }
+        return token;
+    }
+
+    private List<JavaProcessInfo> filterAndEnrich(List<JavaProcessInfo> raw) {
+        if (raw == null || raw.isEmpty()) {
+            return List.of();
+        }
+        List<JavaProcessInfo> out = new ArrayList<>();
+        for (JavaProcessInfo info : raw) {
+            JavaProcessInfo enriched = enrichMainFromCommandLine(info);
+            if (isReportableJvm(enriched)) {
+                out.add(enriched);
+            }
+        }
+        return out;
     }
 
     private Optional<JavaProcessInfo> findByPid(long pid) {
@@ -155,15 +228,34 @@ public final class JavaProcessService {
         }
         try {
             JdkToolchain.Toolchain tc = jdkToolchain.resolveFallback();
-            if (!OsPlatform.isRunnable(tc.jps())) {
-                return List.of();
+            List<Path> candidates = new ArrayList<>();
+            if (OsPlatform.isRunnable(tc.jps())) {
+                candidates.add(tc.jps());
             }
+            jdkToolchain.which("jps").ifPresent(path -> {
+                if (!candidates.contains(path)) {
+                    candidates.add(path);
+                }
+            });
+            for (Path jps : candidates) {
+                List<JavaProcessInfo> parsed = runJpsExecutable(jps);
+                if (!parsed.isEmpty()) {
+                    return parsed;
+                }
+            }
+            return List.of();
+        } catch (Exception ex) {
+            return List.of();
+        }
+    }
+
+    private List<JavaProcessInfo> runJpsExecutable(Path jps) {
+        try {
             CommandResult result = processRunner.run(
-                    List.of(tc.jps().toString(), "-lvm"),
+                    List.of(jps.toString(), "-lvm"),
                     Math.min(5_000L, processRunnerDefaultTimeout()));
             if (result.exitCode() != 0 && (result.stdout() == null || result.stdout().isBlank())) {
-                // retry with simpler flags
-                result = processRunner.run(List.of(tc.jps().toString(), "-l"), 5_000L);
+                result = processRunner.run(List.of(jps.toString(), "-l"), 5_000L);
             }
             return parseJpsOutput(result.stdout());
         } catch (Exception ex) {
@@ -359,7 +451,11 @@ public final class JavaProcessService {
         if (cmdline == null || cmdline.isBlank()) {
             return "";
         }
-        String[] parts = cmdline.split("\\s+");
+        String trimmed = cmdline.trim();
+        if (isLauncherOnlyCommandLine(trimmed)) {
+            return "";
+        }
+        String[] parts = trimmed.split("\\s+");
         boolean jarNext = false;
         for (String part : parts) {
             if (jarNext) {
@@ -392,13 +488,38 @@ public final class JavaProcessService {
                 return part;
             }
         }
-        // fallback: last non-option token
+        // fallback: last non-option, non-launcher token
         for (int i = parts.length - 1; i >= 0; i--) {
-            if (!parts[i].startsWith("-")) {
-                return parts[i];
+            if (parts[i].startsWith("-")) {
+                continue;
             }
+            if (OsPlatform.looksLikeJavaBinary(parts[i])) {
+                continue;
+            }
+            return parts[i];
         }
-        return parts[0];
+        return "";
+    }
+
+    private static boolean isLauncherOnlyCommandLine(String cmdline) {
+        if (cmdline == null || cmdline.isBlank()) {
+            return true;
+        }
+        String lower = cmdline.toLowerCase(Locale.ROOT);
+        if (OsPlatform.looksLikeJavaBinary(cmdline.trim())) {
+            return true;
+        }
+        boolean hasEntry = lower.contains("-jar");
+        if (!hasEntry) {
+            int cp = lower.indexOf("-cp");
+            int classpath = lower.indexOf("-classpath");
+            hasEntry = cp >= 0 || classpath >= 0;
+        }
+        if (!hasEntry) {
+            String normalized = lower.replace('/', '\\');
+            return normalized.endsWith("\\java.exe") || normalized.endsWith("\\javaw.exe");
+        }
+        return false;
     }
 
     static boolean isJavaProcess(String cmdline) {

@@ -22,6 +22,31 @@ class JavaProcessServiceTest {
         assertEquals(
                 "java-diag-mcp-server.jar",
                 JavaProcessService.extractMain("java-diag-mcp-server.jar"));
+        assertEquals(
+                "",
+                JavaProcessService.extractMain("C:\\Program Files\\Java\\jdk-17\\bin\\java.exe"));
+        assertEquals(
+                "C:\\apps\\java-diag-mcp-server.jar",
+                JavaProcessService.extractMain(
+                        "C:\\Program Files\\Java\\jdk-17\\bin\\java.exe -jar C:\\apps\\java-diag-mcp-server.jar"));
+    }
+
+    @Test
+    void isReportableJvmRejectsBareLauncher() {
+        JavaProcessInfo bare =
+                new JavaProcessInfo(
+                        1L,
+                        "C:\\Program Files\\Java\\jdk-17\\bin\\java.exe",
+                        "C:\\Program Files\\Java\\jdk-17\\bin\\java.exe",
+                        null,
+                        null,
+                        null,
+                        "C:\\Program Files\\Java\\jdk-17\\bin\\java.exe");
+        assertFalse(JavaProcessService.isReportableJvm(bare));
+
+        JavaProcessInfo jar =
+                new JavaProcessInfo(2L, "java-diag-mcp-server.jar", "java-diag-mcp-server.jar", null, null, null, "…");
+        assertTrue(JavaProcessService.isReportableJvm(jar));
     }
 
     @Test
@@ -55,6 +80,20 @@ class JavaProcessServiceTest {
         assertEquals(27576L, list.get(1).pid());
         assertEquals("com.intellij.idea.Main", list.get(1).mainClassOrJar());
         assertTrue(list.get(1).commandLine().contains("-Xmx2048m"));
+    }
+
+    @Test
+    void parseJpsOutputFeedsReportableRegistryApps() {
+        String stdout = """
+                25096 java-diag-mcp-server.jar
+                18780 java-diag-gateway.jar
+                """;
+        List<JavaProcessInfo> fromJps = JavaProcessService.parseJpsOutput(stdout);
+        assertEquals(2, fromJps.size());
+        for (JavaProcessInfo info : fromJps) {
+            assertTrue(JavaProcessService.isReportableJvm(info));
+            assertFalse("exe".equalsIgnoreCase(AppNameMapper.fallbackShortName(info.mainClassOrJar())));
+        }
     }
 
     @Test

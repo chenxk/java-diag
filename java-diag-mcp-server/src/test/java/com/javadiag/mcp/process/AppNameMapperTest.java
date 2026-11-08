@@ -35,4 +35,10 @@ class AppNameMapperTest {
         assertEquals("BootApp", AppNameMapper.fallbackShortName("com.example.BootApp"));
         assertEquals("my.jar", AppNameMapper.fallbackShortName("C:\\apps\\my.jar"));
     }
+
+    @Test
+    void fallbackShortNameNeverReturnsExeForJavaLauncher() {
+        assertEquals("unknown", AppNameMapper.fallbackShortName("C:\\Files\\Java\\jdk-17\\bin\\java.exe"));
+        assertEquals("unknown", AppNameMapper.fallbackShortName("java.exe"));
+    }
 }

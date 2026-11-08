@@ -26,14 +26,27 @@ public final class JvmDirectoryBuilder {
     }
 
     public List<Map<String, Object>> buildApps() {
-        List<JavaProcessInfo> processes = processService.listProcesses(null, null);
-        processes.sort(Comparator.comparingLong(JavaProcessInfo::pid));
+        List<JavaProcessInfo> processes = new ArrayList<>(processService.listProcesses(null, null));
+        return buildAppsFrom(processes);
+    }
+
+    List<Map<String, Object>> buildAppsFrom(List<JavaProcessInfo> processes) {
+        List<JavaProcessInfo> sorted = new ArrayList<>(processes);
+        sorted.sort(Comparator.comparingLong(JavaProcessInfo::pid));
         List<Map<String, Object>> apps = new ArrayList<>();
-        for (JavaProcessInfo info : processes) {
+        for (JavaProcessInfo info : sorted) {
             if (apps.size() >= MAX_APPS) {
                 break;
             }
-            apps.add(toAppMap(info));
+            if (!JavaProcessService.isReportableJvm(info)) {
+                continue;
+            }
+            Map<String, Object> app = toAppMap(info);
+            Object name = app.get("name");
+            if (name instanceof String s && "exe".equalsIgnoreCase(s)) {
+                continue;
+            }
+            apps.add(app);
         }
         return apps;
     }

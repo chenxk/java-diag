@@ -1,5 +1,7 @@
 package com.javadiag.mcp.process;
 
+import com.javadiag.mcp.platform.OsPlatform;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -105,12 +107,19 @@ public final class AppNameMapper {
         if (slash >= 0 && slash < token.length() - 1) {
             token = token.substring(slash + 1);
         }
+        if (OsPlatform.looksLikeJavaBinary(token) || "exe".equalsIgnoreCase(token)) {
+            return "unknown";
+        }
         if (token.endsWith(".jar")) {
             return token;
         }
         int dot = token.lastIndexOf('.');
         if (dot > 0 && dot < token.length() - 1) {
-            return token.substring(dot + 1);
+            String simple = token.substring(dot + 1);
+            if ("exe".equalsIgnoreCase(simple)) {
+                return "unknown";
+            }
+            return simple;
         }
         return token;
     }

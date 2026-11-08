@@ -71,6 +71,7 @@ class RegistryHeartbeatClientTest {
                 Map<String, Object> map = (Map<String, Object>) item;
                 assertTrue(map.get("pid") != null);
                 assertTrue(map.containsKey("name"));
+                assertFalse("exe".equalsIgnoreCase(String.valueOf(map.get("name"))));
                 assertFalse(map.containsKey("probeToken"));
             }
         }
