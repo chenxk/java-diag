@@ -5,6 +5,8 @@
   const api = (path, options) =>
     fetch("/admin/api" + path, { credentials: "same-origin", ...options });
 
+  const authShell = document.getElementById("auth-shell");
+  const appShell = document.getElementById("app-shell");
   const loadingPanel = document.getElementById("panel-loading");
   const loginPanel = document.getElementById("panel-login");
   const consolePanel = document.getElementById("panel-console");
@@ -24,6 +26,15 @@
   const tabInstances = document.getElementById("tab-instances");
   const panelMcp = document.getElementById("tab-panel-mcp");
   const panelInstances = document.getElementById("tab-panel-instances");
+  const pageTitle = document.getElementById("page-title");
+  const pageSub = document.getElementById("page-sub");
+  const btnSidebarToggle = document.getElementById("btn-sidebar-toggle");
+  const sidebarBackdrop = document.getElementById("sidebar-backdrop");
+
+  const TAB_META = {
+    [TAB_MCP]: { title: "MCP 配置", sub: "Cursor MCP 接入片段" },
+    [TAB_INSTANCES]: { title: "探针实例", sub: "Registry 注册列表" },
+  };
 
   const probeModal = document.getElementById("probe-mcp-modal");
   const probeModalSub = document.getElementById("probe-mcp-modal-sub");
@@ -48,12 +59,24 @@
   const probeAppsEmpty = document.getElementById("probe-apps-empty");
   let filterDebounce = null;
 
+  function setSidebarOpen(open) {
+    if (!appShell) return;
+    appShell.classList.toggle("sidebar-open", open);
+    if (sidebarBackdrop) sidebarBackdrop.hidden = !open;
+    if (btnSidebarToggle) {
+      btnSidebarToggle.setAttribute("aria-expanded", open ? "true" : "false");
+      btnSidebarToggle.setAttribute("aria-label", open ? "关闭菜单" : "打开菜单");
+    }
+  }
+
   function showConsole(show) {
     loadingPanel.hidden = true;
     loadingPanel.setAttribute("aria-busy", "false");
     loginPanel.hidden = show;
-    consolePanel.hidden = !show;
-    btnLogout.hidden = !show;
+    if (authShell) authShell.hidden = show;
+    if (appShell) appShell.hidden = !show;
+    if (consolePanel) consolePanel.hidden = !show;
+    setSidebarOpen(false);
   }
 
   function mcpUrl() {
@@ -132,6 +155,10 @@
     tabInstances.tabIndex = isMcp ? -1 : 0;
     panelMcp.hidden = !isMcp;
     panelInstances.hidden = isMcp;
+    const meta = TAB_META[tabId] || TAB_META[TAB_MCP];
+    if (pageTitle) pageTitle.textContent = meta.title;
+    if (pageSub) pageSub.textContent = meta.sub;
+    setSidebarOpen(false);
   }
 
   function renderMcpPanel(mcpMeta) {
@@ -481,8 +508,13 @@
   });
 
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !probeModal.hidden) {
+    if (e.key !== "Escape") return;
+    if (!probeModal.hidden) {
       closeProbeModal();
+      return;
+    }
+    if (appShell && appShell.classList.contains("sidebar-open")) {
+      setSidebarOpen(false);
     }
   });
 
@@ -498,6 +530,16 @@
 
   tabMcp.addEventListener("click", () => switchTab(TAB_MCP));
   tabInstances.addEventListener("click", () => switchTab(TAB_INSTANCES));
+
+  if (btnSidebarToggle) {
+    btnSidebarToggle.addEventListener("click", () => {
+      const open = !appShell.classList.contains("sidebar-open");
+      setSidebarOpen(open);
+    });
+  }
+  if (sidebarBackdrop) {
+    sidebarBackdrop.addEventListener("click", () => setSidebarOpen(false));
+  }
 
   btnLogout.addEventListener("click", async () => {
     await api("/logout", { method: "POST" });
