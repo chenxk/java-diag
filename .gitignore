@@ -10,3 +10,4 @@ logs/
 .DS_Store
 dependency-reduced-pom.xml
 agent-tools/
+*.pid
