@@ -264,11 +264,8 @@ public final class JavaProcessService {
 
     private long jpsListingTimeoutMs() {
         long configured = processRunnerDefaultTimeout();
-        // Windows jps often exceeds 5s on busy hosts; never cap below tool.timeout.ms.
-        if (OsPlatform.isWindows()) {
-            return Math.max(configured, 12_000L);
-        }
-        return Math.max(configured, 8_000L);
+        // jps can exceed ~5s on busy hosts; floor at 12s all platforms, never below tool.timeout.ms.
+        return Math.max(configured, 12_000L);
     }
 
     private long processRunnerDefaultTimeout() {
