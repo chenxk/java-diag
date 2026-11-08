@@ -97,6 +97,21 @@ class JavaProcessServiceTest {
     }
 
     @Test
+    void parseJpsOutputJarRowsSurviveReportableFilter() {
+        String stdout = """
+                8228 C:\\apps\\java-diag-mcp-server.jar
+                9000 java-diag-gateway.jar -Xmx512m
+                42 C:\\Program Files\\Java\\jdk-17\\bin\\java.exe
+                """;
+        List<JavaProcessInfo> fromJps = JavaProcessService.parseJpsOutput(stdout);
+        long reportable =
+                fromJps.stream().filter(JavaProcessService::isReportableJvm).count();
+        assertEquals(2, reportable, "jps lines with .jar must be included in apps");
+        assertTrue(fromJps.stream().anyMatch(p -> p.mainClassOrJar().contains("java-diag-mcp-server.jar")));
+        assertTrue(fromJps.stream().anyMatch(p -> "java-diag-gateway.jar".equals(p.mainClassOrJar())));
+    }
+
+    @Test
     void listProcessesWithoutToolchainFallsBackGracefully() {
         JavaProcessService service = new JavaProcessService(Optional.empty());
         // Should not throw; may return empty or ProcessHandle results depending on OS permissions.

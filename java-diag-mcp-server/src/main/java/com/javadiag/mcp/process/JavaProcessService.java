@@ -251,11 +251,10 @@ public final class JavaProcessService {
 
     private List<JavaProcessInfo> runJpsExecutable(Path jps) {
         try {
-            CommandResult result = processRunner.run(
-                    List.of(jps.toString(), "-lvm"),
-                    Math.min(5_000L, processRunnerDefaultTimeout()));
+            long timeoutMs = jpsListingTimeoutMs();
+            CommandResult result = processRunner.run(List.of(jps.toString(), "-lvm"), timeoutMs);
             if (result.exitCode() != 0 && (result.stdout() == null || result.stdout().isBlank())) {
-                result = processRunner.run(List.of(jps.toString(), "-l"), 5_000L);
+                result = processRunner.run(List.of(jps.toString(), "-l"), timeoutMs);
             }
             return parseJpsOutput(result.stdout());
         } catch (Exception ex) {
@@ -263,9 +262,20 @@ public final class JavaProcessService {
         }
     }
 
+    private long jpsListingTimeoutMs() {
+        long configured = processRunnerDefaultTimeout();
+        // Windows jps often exceeds 5s on busy hosts; never cap below tool.timeout.ms.
+        if (OsPlatform.isWindows()) {
+            return Math.max(configured, 12_000L);
+        }
+        return Math.max(configured, 8_000L);
+    }
+
     private long processRunnerDefaultTimeout() {
-        // ProcessRunner doesn't expose default timeout; use a safe short bound for listing.
-        return 5_000L;
+        if (processRunner == null) {
+            return 15_000L;
+        }
+        return processRunner.defaultTimeoutMs();
     }
 
     /**

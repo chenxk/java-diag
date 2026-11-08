@@ -29,6 +29,10 @@ public final class ProcessRunner {
         this.defaultTimeoutMs = defaultTimeoutMs;
     }
 
+    public long defaultTimeoutMs() {
+        return defaultTimeoutMs;
+    }
+
     public CommandResult run(List<String> command) {
         return run(command, defaultTimeoutMs);
     }
