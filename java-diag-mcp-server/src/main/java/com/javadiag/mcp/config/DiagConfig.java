@@ -20,9 +20,30 @@ import com.javadiag.mcp.process.AppNameMapper;
 import java.util.regex.Pattern;
 
 /**
- * Runtime configuration loaded from environment variables / CLI overrides.
+ * Runtime configuration: built-in defaults → properties file → environment → CLI.
  */
 public final class DiagConfig {
+
+    /** Dot keys in {@code java-diag-mcp-server.properties} (legacy {@code JAVA_DIAG_*} names also accepted). */
+    public static final String PROP_TRANSPORT = "transport";
+    public static final String PROP_HTTP_HOST = "http.host";
+    public static final String PROP_HTTP_PORT = "http.port";
+    public static final String PROP_AUTH_TOKEN = "auth.token";
+    public static final String PROP_ALLOWED_LOG_DIRS = "allowed.log.dirs";
+    public static final String PROP_ALLOWED_MAIN_CLASS_REGEX = "allowed.main.class.regex";
+    public static final String PROP_TOOL_TIMEOUT_MS = "tool.timeout.ms";
+    public static final String PROP_MAX_OUTPUT_BYTES = "max.output.bytes";
+    public static final String PROP_DANGEROUS_TOOLS = "dangerous.tools.enabled";
+    public static final String PROP_AUDIT_PATH = "audit.path";
+    public static final String PROP_SERVICE_NAME = "service.name";
+    public static final String PROP_REGISTER_URL = "register.url";
+    public static final String PROP_REGISTER_TOKEN = "register.token";
+    public static final String PROP_ADVERTISE_URL = "advertise.url";
+    public static final String PROP_HEARTBEAT_INTERVAL = "heartbeat.interval.seconds";
+    public static final String PROP_TAGS = "tags";
+    public static final String PROP_DUMP_COOLDOWN_MS = "dump.cooldown.ms";
+    public static final String PROP_DUMP_TIMEOUT_MS = "dump.timeout.ms";
+    public static final String PROP_APP_NAME_MAP = "app.name.map";
 
     public static final String ENV_ALLOWED_LOG_DIRS = "JAVA_DIAG_ALLOWED_LOG_DIRS";
     public static final String ENV_ALLOWED_MAIN_CLASS_REGEX = "JAVA_DIAG_ALLOWED_MAIN_CLASS_REGEX";
@@ -40,6 +61,7 @@ public final class DiagConfig {
     public static final String ENV_HEARTBEAT_INTERVAL = "JAVA_DIAG_HEARTBEAT_INTERVAL_SECONDS";
     public static final String ENV_TAGS = "JAVA_DIAG_TAGS";
     public static final String ENV_DUMP_COOLDOWN_MS = "JAVA_DIAG_DUMP_COOLDOWN_MS";
+    public static final String ENV_DUMP_TIMEOUT_MS = "JAVA_DIAG_DUMP_TIMEOUT_MS";
     public static final String ENV_REGISTRY_REGISTER_TOKEN = "JAVA_DIAG_REGISTRY_REGISTER_TOKEN";
     public static final String ENV_APP_NAME_MAP = "JAVA_DIAG_APP_NAME_MAP";
 
@@ -123,6 +145,11 @@ public final class DiagConfig {
         this.appNameMapper = appNameMapper == null ? AppNameMapper.empty() : appNameMapper;
     }
 
+    public static DiagConfig load(java.util.Map<String, String> env, List<String> cliArgs) {
+        SettingsProperties.ConfigLayer layer = SettingsProperties.loadConfigLayer(cliArgs);
+        return fromEnvironment(env, layer.cliArgsWithoutConfig(), layer.fileSettings());
+    }
+
     public static DiagConfig fromEnvironment() {
         return fromEnvironment(System.getenv(), List.of());
     }
@@ -132,43 +159,99 @@ public final class DiagConfig {
     }
 
     public static DiagConfig fromEnvironment(java.util.Map<String, String> env, List<String> cliArgs) {
-        List<Path> dirs = parseDirs(env.get(ENV_ALLOWED_LOG_DIRS));
+        return fromEnvironment(env, cliArgs, Map.of());
+    }
+
+    public static DiagConfig fromEnvironment(
+            java.util.Map<String, String> env, List<String> cliArgs, Map<String, String> fileSettings) {
+        List<Path> dirs = parseDirs(SettingsProperties.resolve(
+                fileSettings, env, ENV_ALLOWED_LOG_DIRS, PROP_ALLOWED_LOG_DIRS, ENV_ALLOWED_LOG_DIRS));
         if (dirs.isEmpty()) {
             dirs = defaultAllowedDirs();
         }
 
         Optional<Pattern> mainClassRegex = Optional.empty();
-        String regex = env.get(ENV_ALLOWED_MAIN_CLASS_REGEX);
+        String regex = SettingsProperties.resolve(
+                fileSettings,
+                env,
+                ENV_ALLOWED_MAIN_CLASS_REGEX,
+                PROP_ALLOWED_MAIN_CLASS_REGEX,
+                ENV_ALLOWED_MAIN_CLASS_REGEX);
         if (regex != null && !regex.isBlank()) {
             mainClassRegex = Optional.of(Pattern.compile(regex));
         }
 
-        long timeout = parseLong(env.get(ENV_TOOL_TIMEOUT_MS), DEFAULT_TIMEOUT_MS);
-        int maxBytes = (int) Math.min(Integer.MAX_VALUE,
-                parseLong(env.get(ENV_MAX_OUTPUT_BYTES), DEFAULT_MAX_OUTPUT_BYTES));
-        boolean dangerous = parseBoolean(env.get(ENV_DANGEROUS_TOOLS), false);
+        long timeout = parseLong(
+                SettingsProperties.resolve(
+                        fileSettings, env, ENV_TOOL_TIMEOUT_MS, PROP_TOOL_TIMEOUT_MS, ENV_TOOL_TIMEOUT_MS),
+                DEFAULT_TIMEOUT_MS);
+        int maxBytes = (int) Math.min(
+                Integer.MAX_VALUE,
+                parseLong(
+                        SettingsProperties.resolve(
+                                fileSettings, env, ENV_MAX_OUTPUT_BYTES, PROP_MAX_OUTPUT_BYTES, ENV_MAX_OUTPUT_BYTES),
+                        DEFAULT_MAX_OUTPUT_BYTES));
+        boolean dangerous = parseBoolean(
+                SettingsProperties.resolve(
+                        fileSettings, env, ENV_DANGEROUS_TOOLS, PROP_DANGEROUS_TOOLS, ENV_DANGEROUS_TOOLS),
+                false);
 
-        Path audit = Paths.get(Optional.ofNullable(env.get(ENV_AUDIT_PATH))
+        Path audit = Paths.get(Optional.ofNullable(SettingsProperties.resolve(
+                        fileSettings, env, ENV_AUDIT_PATH, PROP_AUDIT_PATH, ENV_AUDIT_PATH))
                 .filter(s -> !s.isBlank())
                 .orElse("./logs/java-diag-audit.log"))
                 .toAbsolutePath()
                 .normalize();
 
-        Transport transport = parseTransport(env.get(ENV_TRANSPORT), Transport.HTTP);
-        String httpHost = Optional.ofNullable(env.get(ENV_HTTP_HOST))
+        Transport transport = parseTransport(
+                SettingsProperties.resolve(fileSettings, env, ENV_TRANSPORT, PROP_TRANSPORT, ENV_TRANSPORT),
+                Transport.HTTP);
+        String httpHost = Optional.ofNullable(SettingsProperties.resolve(
+                        fileSettings, env, ENV_HTTP_HOST, PROP_HTTP_HOST, ENV_HTTP_HOST))
                 .filter(s -> !s.isBlank())
                 .orElse(DEFAULT_HTTP_HOST);
-        int httpPort = (int) parseLong(env.get(ENV_HTTP_PORT), DEFAULT_HTTP_PORT);
-        Optional<String> authToken = Optional.ofNullable(env.get(ENV_AUTH_TOKEN)).filter(s -> !s.isBlank());
-        Optional<String> serviceNameOpt = Optional.ofNullable(env.get(ENV_SERVICE_NAME)).filter(s -> !s.isBlank());
-        Optional<String> registerUrl = Optional.ofNullable(env.get(ENV_REGISTER_URL)).filter(s -> !s.isBlank());
-        Optional<String> advertiseUrl = Optional.ofNullable(env.get(ENV_ADVERTISE_URL)).filter(s -> !s.isBlank());
-        long heartbeatInterval = parseLong(env.get(ENV_HEARTBEAT_INTERVAL), DEFAULT_HEARTBEAT_INTERVAL);
-        Map<String, String> tags = parseTags(env.get(ENV_TAGS));
-        long dumpCooldownMs = parseLong(env.get(ENV_DUMP_COOLDOWN_MS), DEFAULT_DUMP_COOLDOWN_MS);
-        Optional<String> registryRegisterToken =
-                Optional.ofNullable(env.get(ENV_REGISTRY_REGISTER_TOKEN)).filter(s -> !s.isBlank());
-        String appNameMapEnv = env.get(ENV_APP_NAME_MAP);
+        int httpPort = (int) parseLong(
+                SettingsProperties.resolve(fileSettings, env, ENV_HTTP_PORT, PROP_HTTP_PORT, ENV_HTTP_PORT),
+                DEFAULT_HTTP_PORT);
+        Optional<String> authToken = Optional.ofNullable(SettingsProperties.resolve(
+                        fileSettings, env, ENV_AUTH_TOKEN, PROP_AUTH_TOKEN, ENV_AUTH_TOKEN))
+                .filter(s -> !s.isBlank());
+        Optional<String> serviceNameOpt = Optional.ofNullable(SettingsProperties.resolve(
+                        fileSettings, env, ENV_SERVICE_NAME, PROP_SERVICE_NAME, ENV_SERVICE_NAME))
+                .filter(s -> !s.isBlank());
+        Optional<String> registerUrl = Optional.ofNullable(SettingsProperties.resolve(
+                        fileSettings, env, ENV_REGISTER_URL, PROP_REGISTER_URL, ENV_REGISTER_URL))
+                .filter(s -> !s.isBlank());
+        Optional<String> advertiseUrl = Optional.ofNullable(SettingsProperties.resolve(
+                        fileSettings, env, ENV_ADVERTISE_URL, PROP_ADVERTISE_URL, ENV_ADVERTISE_URL))
+                .filter(s -> !s.isBlank());
+        long heartbeatInterval = parseLong(
+                SettingsProperties.resolve(
+                        fileSettings,
+                        env,
+                        ENV_HEARTBEAT_INTERVAL,
+                        PROP_HEARTBEAT_INTERVAL,
+                        ENV_HEARTBEAT_INTERVAL),
+                DEFAULT_HEARTBEAT_INTERVAL);
+        Map<String, String> tags = parseTags(
+                SettingsProperties.resolve(fileSettings, env, ENV_TAGS, PROP_TAGS, ENV_TAGS));
+        long dumpCooldownMs = parseLong(
+                SettingsProperties.resolve(
+                        fileSettings, env, ENV_DUMP_COOLDOWN_MS, PROP_DUMP_COOLDOWN_MS, ENV_DUMP_COOLDOWN_MS),
+                DEFAULT_DUMP_COOLDOWN_MS);
+        long dumpTimeoutMs = parseLong(
+                SettingsProperties.resolve(
+                        fileSettings, env, ENV_DUMP_TIMEOUT_MS, PROP_DUMP_TIMEOUT_MS, ENV_DUMP_TIMEOUT_MS),
+                DEFAULT_DUMP_TIMEOUT_MS);
+        Optional<String> registryRegisterToken = Optional.ofNullable(SettingsProperties.resolve(
+                        fileSettings,
+                        env,
+                        ENV_REGISTRY_REGISTER_TOKEN,
+                        PROP_REGISTER_TOKEN,
+                        ENV_REGISTRY_REGISTER_TOKEN))
+                .filter(s -> !s.isBlank());
+        String appNameMapEnv = SettingsProperties.resolve(
+                fileSettings, env, ENV_APP_NAME_MAP, PROP_APP_NAME_MAP, ENV_APP_NAME_MAP);
         List<String> cliAppMaps = new ArrayList<>();
 
         for (int i = 0; i < cliArgs.size(); i++) {
@@ -215,7 +298,7 @@ public final class DiagConfig {
                 dirs,
                 mainClassRegex,
                 timeout,
-                DEFAULT_DUMP_TIMEOUT_MS,
+                dumpTimeoutMs,
                 maxBytes,
                 dangerous,
                 audit,

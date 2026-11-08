@@ -22,7 +22,7 @@ public final class JavaDiagGateway {
             return;
         }
 
-        GatewayConfig config = GatewayConfig.from(argList);
+        GatewayConfig config = GatewayConfig.load(argList);
         JsonSupport json = JsonSupport.createDefault();
         InMemoryRegistry registry = new InMemoryRegistry(Duration.ofSeconds(config.heartbeatTtlSeconds()));
         GatewayToolRegistrar tools = new GatewayToolRegistrar(config, registry, json);
@@ -36,29 +36,28 @@ public final class JavaDiagGateway {
         System.out.println("""
                 java-diag-gateway — cluster MCP entry + built-in probe registry
 
-                Config: env first, then CLI overrides. Full list: docs/CONFIGURATION.md
+                Configuration load order:
+                  1) built-in defaults
+                  2) properties file (--config <file>, else ./java-diag-gateway.properties if present)
+                  3) environment variables (optional override)
+                  4) CLI flags (highest priority)
+
+                Example file: java-diag-gateway.properties.example — see docs/CONFIGURATION.md
 
                 Usage:
-                  java -jar java-diag-gateway.jar --token agent-secret
-                  java -jar java-diag-gateway.jar --host 0.0.0.0 --port 8787 --token agent-secret
+                  java -jar java-diag-gateway.jar --config ./java-diag-gateway.properties
+                  java -jar java-diag-gateway.jar --config ./gw.properties --token agent-secret
 
-                Flags:
-                  --host <addr>                     default 0.0.0.0 (JAVA_DIAG_HTTP_HOST)
-                  --port <port>                     default 8787 (JAVA_DIAG_HTTP_PORT)
-                  --token / --auth-token <value>    Agent Bearer token (JAVA_DIAG_AUTH_TOKEN)
+                CLI (common overrides):
+                  --config <file>
+                  --host <addr>                     default 0.0.0.0
+                  --port <port>                     default 8787
+                  --token / --auth-token <value>    Agent Bearer token
+                  --register-token <value>          registry API hardening (optional)
+                  --admin-user / --admin-password   admin console (prefer properties file)
+
+                Less common (properties or env):
                   --heartbeat-ttl-seconds <n>       default 90, must be >= 5
-                                                    (JAVA_DIAG_HEARTBEAT_TTL_SECONDS)
-
-                Env-only:
-                  JAVA_DIAG_INSTANCE_ID             gateway self envelope id (default gateway-{pid});
-                                                    not used for probe routing (probes use advertise host:port)
-                  JAVA_DIAG_GATEWAY_AUDIT_PATH        JSONL proxy audit (default ./logs/java-diag-gateway-audit.log)
-                  JAVA_DIAG_REGISTRY_REGISTER_TOKEN   optional registry Bearer / X-Registry-Token (default off)
-                  JAVA_DIAG_DUMP_COOLDOWN_MS          proxy cooldown for dump-class tools (default 10000)
-                  JAVA_DIAG_ADMIN_USER                admin console username (default admin)
-                  JAVA_DIAG_ADMIN_PASSWORD            admin console password (default java-diag)
-                  --register-token <value>            CLI override for registry token
-                  --admin-user / --admin-password       admin console credentials
 
                 Registry (/registry/*): no auth by default (trust intranet). Set register-token for LAN hardening.
                 Keep the gateway registry port off the public internet.

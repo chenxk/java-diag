@@ -3,9 +3,21 @@ package com.javadiag.gateway.config;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public final class GatewayConfig {
+
+    public static final String PROP_HTTP_HOST = "http.host";
+    public static final String PROP_HTTP_PORT = "http.port";
+    public static final String PROP_AUTH_TOKEN = "auth.token";
+    public static final String PROP_HEARTBEAT_TTL = "heartbeat.ttl.seconds";
+    public static final String PROP_INSTANCE_ID = "instance.id";
+    public static final String PROP_AUDIT_PATH = "audit.path";
+    public static final String PROP_REGISTER_TOKEN = "register.token";
+    public static final String PROP_DUMP_COOLDOWN_MS = "dump.cooldown.ms";
+    public static final String PROP_ADMIN_USER = "admin.user";
+    public static final String PROP_ADMIN_PASSWORD = "admin.password";
 
     public static final String ENV_HTTP_HOST = "JAVA_DIAG_HTTP_HOST";
     public static final String ENV_HTTP_PORT = "JAVA_DIAG_HTTP_PORT";
@@ -62,28 +74,66 @@ public final class GatewayConfig {
         this.adminPassword = adminPassword;
     }
 
+    public static GatewayConfig load(List<String> cliArgs) {
+        return load(System.getenv(), cliArgs);
+    }
+
+    public static GatewayConfig load(java.util.Map<String, String> env, List<String> cliArgs) {
+        SettingsProperties.ConfigLayer layer = SettingsProperties.loadConfigLayer(cliArgs);
+        return from(env, layer.cliArgsWithoutConfig(), layer.fileSettings());
+    }
+
     public static GatewayConfig from(List<String> cliArgs) {
         return from(System.getenv(), cliArgs);
     }
 
     public static GatewayConfig from(java.util.Map<String, String> env, List<String> cliArgs) {
-        String host = Optional.ofNullable(env.get(ENV_HTTP_HOST)).filter(s -> !s.isBlank()).orElse(DEFAULT_HOST);
-        int port = (int) parseLong(env.get(ENV_HTTP_PORT), DEFAULT_PORT);
-        Optional<String> auth = Optional.ofNullable(env.get(ENV_AUTH_TOKEN)).filter(s -> !s.isBlank());
-        long ttl = parseLong(env.get(ENV_HEARTBEAT_TTL), DEFAULT_TTL_SECONDS);
-        String instanceId = Optional.ofNullable(env.get(ENV_INSTANCE_ID)).filter(s -> !s.isBlank())
+        return from(env, cliArgs, Map.of());
+    }
+
+    public static GatewayConfig from(java.util.Map<String, String> env, List<String> cliArgs, Map<String, String> fileSettings) {
+        String host = Optional.ofNullable(SettingsProperties.resolve(
+                        fileSettings, env, ENV_HTTP_HOST, PROP_HTTP_HOST, ENV_HTTP_HOST))
+                .filter(s -> !s.isBlank())
+                .orElse(DEFAULT_HOST);
+        int port = (int) parseLong(
+                SettingsProperties.resolve(fileSettings, env, ENV_HTTP_PORT, PROP_HTTP_PORT, ENV_HTTP_PORT),
+                DEFAULT_PORT);
+        Optional<String> auth = Optional.ofNullable(SettingsProperties.resolve(
+                        fileSettings, env, ENV_AUTH_TOKEN, PROP_AUTH_TOKEN, ENV_AUTH_TOKEN))
+                .filter(s -> !s.isBlank());
+        long ttl = parseLong(
+                SettingsProperties.resolve(
+                        fileSettings, env, ENV_HEARTBEAT_TTL, PROP_HEARTBEAT_TTL, ENV_HEARTBEAT_TTL),
+                DEFAULT_TTL_SECONDS);
+        String instanceId = Optional.ofNullable(SettingsProperties.resolve(
+                        fileSettings, env, ENV_INSTANCE_ID, PROP_INSTANCE_ID, ENV_INSTANCE_ID))
+                .filter(s -> !s.isBlank())
                 .orElseGet(() -> "gateway-" + ProcessHandle.current().pid());
-        Path auditPath = Paths.get(Optional.ofNullable(env.get(ENV_AUDIT_PATH))
+        Path auditPath = Paths.get(Optional.ofNullable(SettingsProperties.resolve(
+                        fileSettings, env, ENV_AUDIT_PATH, PROP_AUDIT_PATH, ENV_AUDIT_PATH))
                 .filter(s -> !s.isBlank())
                 .orElse("./logs/java-diag-gateway-audit.log"))
                 .toAbsolutePath()
                 .normalize();
-        Optional<String> registryToken =
-                Optional.ofNullable(env.get(ENV_REGISTRY_REGISTER_TOKEN)).filter(s -> !s.isBlank());
-        long dumpCooldown = parseLong(env.get(ENV_DUMP_COOLDOWN_MS), DEFAULT_DUMP_COOLDOWN_MS);
-        String adminUser = Optional.ofNullable(env.get(ENV_ADMIN_USER)).filter(s -> !s.isBlank())
+        Optional<String> registryToken = Optional.ofNullable(SettingsProperties.resolve(
+                        fileSettings,
+                        env,
+                        ENV_REGISTRY_REGISTER_TOKEN,
+                        PROP_REGISTER_TOKEN,
+                        ENV_REGISTRY_REGISTER_TOKEN))
+                .filter(s -> !s.isBlank());
+        long dumpCooldown = parseLong(
+                SettingsProperties.resolve(
+                        fileSettings, env, ENV_DUMP_COOLDOWN_MS, PROP_DUMP_COOLDOWN_MS, ENV_DUMP_COOLDOWN_MS),
+                DEFAULT_DUMP_COOLDOWN_MS);
+        String adminUser = Optional.ofNullable(SettingsProperties.resolve(
+                        fileSettings, env, ENV_ADMIN_USER, PROP_ADMIN_USER, ENV_ADMIN_USER))
+                .filter(s -> !s.isBlank())
                 .orElse(DEFAULT_ADMIN_USER);
-        String adminPassword = Optional.ofNullable(env.get(ENV_ADMIN_PASSWORD)).filter(s -> !s.isBlank())
+        String adminPassword = Optional.ofNullable(SettingsProperties.resolve(
+                        fileSettings, env, ENV_ADMIN_PASSWORD, PROP_ADMIN_PASSWORD, ENV_ADMIN_PASSWORD))
+                .filter(s -> !s.isBlank())
                 .orElse(DEFAULT_ADMIN_PASSWORD);
 
         for (int i = 0; i < cliArgs.size(); i++) {

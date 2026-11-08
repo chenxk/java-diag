@@ -33,7 +33,7 @@ public final class JavaDiagMcpServer {
             return;
         }
 
-        DiagConfig config = DiagConfig.fromEnvironment(System.getenv(), argList);
+        DiagConfig config = DiagConfig.load(System.getenv(), argList);
         JsonCodec codec = JsonCodec.createDefault();
         ToolSupport support = ToolSupport.create(config, codec);
         ToolRegistrar registrar = new ToolRegistrar(support);
@@ -85,7 +85,7 @@ public final class JavaDiagMcpServer {
     }
 
     private static void listToolsAndExit(List<String> argList) {
-        DiagConfig config = DiagConfig.fromEnvironment(System.getenv(), argList);
+        DiagConfig config = DiagConfig.load(System.getenv(), argList);
         JsonCodec codec = JsonCodec.createDefault();
         ToolSupport support = ToolSupport.create(config, codec);
         ToolRegistrar registrar = new ToolRegistrar(support);
@@ -102,42 +102,36 @@ public final class JavaDiagMcpServer {
 
                 Default transport: HTTP (Agent or Gateway connects via IP:port)
                 Local IDE fallback: --stdio
-                Config: env first, then CLI overrides. Full list: docs/CONFIGURATION.md
+
+                Configuration load order:
+                  1) built-in defaults
+                  2) properties file (--config <file>, else ./java-diag-mcp-server.properties if present)
+                  3) environment variables (optional override)
+                  4) CLI flags below (highest priority)
+
+                Example file (all keys): classpath java-diag-mcp-server.properties.example
+                Full reference: docs/CONFIGURATION.md
 
                 Usage:
-                  java -jar java-diag-mcp-server.jar --port 8765 --token probe-secret
-                  java -jar java-diag-mcp-server.jar --port 8765 --token probe-secret \\
-                       --service-name order-service --tag env=prod \\
-                       --register-url http://gateway:8787 \\
-                       --advertise-url http://10.0.1.11:8765
+                  java -jar java-diag-mcp-server.jar --config ./java-diag-mcp-server.properties
+                  java -jar java-diag-mcp-server.jar --config ./probe.properties --port 8765 --token probe-secret
                   java -jar java-diag-mcp-server.jar --stdio
 
-                Transport / HTTP:
+                CLI (common overrides):
+                  --config <file>              explicit properties file (required to exist)
                   --http | --stdio
-                  --host <addr>                default 0.0.0.0 (JAVA_DIAG_HTTP_HOST)
-                  --port <port>                default 8765 (JAVA_DIAG_HTTP_PORT)
-                  --token / --auth-token <v>   Bearer token (JAVA_DIAG_AUTH_TOKEN)
-
-                Cluster:
-                  --service-name <name>        JAVA_DIAG_SERVICE_NAME (optional; default primary IP)
-                  --tag key=value              repeatable; or JAVA_DIAG_TAGS=k=v,k2=v2
+                  --host <addr>                default 0.0.0.0
+                  --port <port>                default 8765
+                  --token / --auth-token <v>   Bearer token
+                  --service-name <name>        optional; default primary IP
                   --register-url <gateway>     enables heartbeat
-                  --register-token <value>     sent on /registry/* (JAVA_DIAG_REGISTRY_REGISTER_TOKEN)
-                  --advertise-url <url>        public base URL registered to gateway
-                                               (instance identity = host:port from this URL)
-                  --heartbeat-interval-seconds <n>   default 20 (min effective 5)
-                  --app-map <pattern>=<name>        repeatable; or JAVA_DIAG_APP_NAME_MAP
+                  --register-token <value>     /registry/* when gateway requires it
+                  --advertise-url <url>        public MCP base URL (instanceId = host:port)
 
-                Env-only (no CLI):
-                  JAVA_DIAG_TRANSPORT=http|stdio
-                  JAVA_DIAG_ALLOWED_LOG_DIRS=/a,/b
-                  JAVA_DIAG_ALLOWED_MAIN_CLASS_REGEX=<regex>
-                  JAVA_DIAG_TOOL_TIMEOUT_MS=15000
-                  JAVA_DIAG_MAX_OUTPUT_BYTES=262144
-                  JAVA_DIAG_DANGEROUS_TOOLS_ENABLED=false
-                  JAVA_DIAG_AUDIT_PATH=./logs/java-diag-audit.log
-                  JAVA_DIAG_DUMP_COOLDOWN_MS=10000
-                  JAVA_DIAG_APP_NAME_MAP=order-service.jar=order-service,com.foo.App=foo
+                Other CLI (less common; prefer properties file):
+                  --tag key=value              repeatable
+                  --heartbeat-interval-seconds <n>
+                  --app-map <pattern>=<name>   repeatable
 
                 Other: --help / -h   --list-tools
                 """);

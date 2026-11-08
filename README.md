@@ -28,13 +28,18 @@ java -jar java-diag-mcp-server.jar --help
 java -jar java-diag-gateway.jar --help
 ```
 
-加载顺序：环境变量 → CLI 覆盖。无独立配置文件。
+示例 properties（模块内 `src/main/resources/*.properties.example`）复制到工作目录或 `--config` 指定。
+
+加载顺序：**内置默认 → properties 文件 → 环境变量 → CLI**。
 
 ## 单机探针
 
 ```bash
+cp java-diag-mcp-server/src/main/resources/java-diag-mcp-server.properties.example \
+   ./java-diag-mcp-server.properties
+# 编辑 auth.token、allowed.log.dirs 等
 java -jar java-diag-mcp-server/target/java-diag-mcp-server.jar \
-  --host 0.0.0.0 --port 8765 --token probe-secret
+  --config ./java-diag-mcp-server.properties
 ```
 
 Agent 直连：
@@ -56,8 +61,7 @@ Agent 直连：
 
 ```bash
 java -jar java-diag-gateway/target/java-diag-gateway.jar \
-  --host 0.0.0.0 --port 8787 \
-  --token agent-secret
+  --config ./java-diag-gateway.properties
 ```
 
 Registry（`/registry/*`）无共享密钥：信任内网；Agent→Gateway 仍用 `--token`。
@@ -71,8 +75,7 @@ Registry（`/registry/*`）无共享密钥：信任内网；Agent→Gateway 仍�
 
 ```bash
 java -jar java-diag-mcp-server/target/java-diag-mcp-server.jar \
-  --host 0.0.0.0 --port 8765 --token probe-secret \
-  --service-name order-service --tag env=prod \
+  --config ./java-diag-mcp-server.properties \
   --register-url http://gateway-host:8787 \
   --advertise-url http://10.0.1.11:8765
 ```
