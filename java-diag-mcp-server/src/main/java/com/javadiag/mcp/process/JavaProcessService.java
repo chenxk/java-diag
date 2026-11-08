@@ -24,8 +24,8 @@ import java.util.stream.Collectors;
 /**
  * Discovers local Java processes on Windows, macOS, and Linux.
  * <p>
- * Strategy: Linux {@code /proc} when available; otherwise {@code jps -lvm};
- * finally {@link ProcessHandle} as a last resort.
+ * Strategy: on Linux, merge {@code /proc} and {@code jps -lvm} by pid (union);
+ * elsewhere prefer {@code jps}; finally {@link ProcessHandle} as a last resort.
  */
 public final class JavaProcessService {
 
@@ -117,16 +117,99 @@ public final class JavaProcessService {
 
     private List<JavaProcessInfo> discoverAll() {
         if (OsPlatform.hasProcFs()) {
-            List<JavaProcessInfo> fromProc = scanProc();
-            if (!fromProc.isEmpty()) {
-                return filterAndEnrich(fromProc);
+            // Union /proc and jps by pid — do not short-circuit when /proc is non-empty.
+            // Host jps often sees JVMs that /proc cmdline heuristics miss (and vice versa).
+            List<JavaProcessInfo> merged = mergeByPid(scanProc(), scanJps());
+            if (!merged.isEmpty()) {
+                return filterAndEnrich(merged);
+            }
+        } else {
+            List<JavaProcessInfo> fromJps = scanJps();
+            if (!fromJps.isEmpty()) {
+                return filterAndEnrich(fromJps);
             }
         }
-        List<JavaProcessInfo> fromJps = scanJps();
-        if (!fromJps.isEmpty()) {
-            return filterAndEnrich(fromJps);
-        }
         return filterAndEnrich(scanProcessHandles());
+    }
+
+    /**
+     * Union two discovery sources by pid. {@code primary} wins on conflict
+     * (typically {@code /proc}, which carries user/rss/full cmdline), except when
+     * primary's main is not reportable and secondary's is — then adopt secondary's main
+     * while keeping primary metadata.
+     */
+    static List<JavaProcessInfo> mergeByPid(
+            List<JavaProcessInfo> primary, List<JavaProcessInfo> secondary) {
+        Map<Long, JavaProcessInfo> byPid = new LinkedHashMap<>();
+        if (primary != null) {
+            for (JavaProcessInfo info : primary) {
+                if (info != null) {
+                    byPid.put(info.pid(), info);
+                }
+            }
+        }
+        if (secondary != null) {
+            for (JavaProcessInfo info : secondary) {
+                if (info == null) {
+                    continue;
+                }
+                JavaProcessInfo existing = byPid.get(info.pid());
+                if (existing == null) {
+                    byPid.put(info.pid(), info);
+                } else {
+                    byPid.put(info.pid(), preferReportableMain(existing, info));
+                }
+            }
+        }
+        return new ArrayList<>(byPid.values());
+    }
+
+    /**
+     * Keep {@code primary} metadata on conflict. If its stored main is not a valid jar/FQCN,
+     * try repairing from primary cmdline; if still unusable and {@code secondary} has a valid
+     * main (e.g. jps), adopt secondary's main/display name.
+     */
+    static JavaProcessInfo preferReportableMain(JavaProcessInfo primary, JavaProcessInfo secondary) {
+        if (primary == null) {
+            return secondary;
+        }
+        String primaryMain = resolveReportableMain(primary);
+        if (isJavaMainToken(primaryMain)) {
+            if (primaryMain.equals(primary.mainClassOrJar())) {
+                return primary;
+            }
+            return copyWithMain(primary, primaryMain);
+        }
+        if (secondary == null) {
+            return primary;
+        }
+        String secondaryMain = resolveReportableMain(secondary);
+        if (!isJavaMainToken(secondaryMain)) {
+            return primary;
+        }
+        String cmd = primary.commandLine();
+        if (cmd == null || cmd.isBlank()) {
+            cmd = secondary.commandLine();
+        }
+        return new JavaProcessInfo(
+                primary.pid(),
+                secondaryMain,
+                secondaryMain,
+                primary.user() != null ? primary.user() : secondary.user(),
+                primary.startTimeEpochMs() != null ? primary.startTimeEpochMs() : secondary.startTimeEpochMs(),
+                primary.rssKb() != null ? primary.rssKb() : secondary.rssKb(),
+                cmd);
+    }
+
+    private static String resolveReportableMain(JavaProcessInfo info) {
+        if (info == null) {
+            return "";
+        }
+        String main = normalizeMainToken(info.mainClassOrJar());
+        if (isJavaMainToken(main)) {
+            return main;
+        }
+        return extractMain(info.commandLine());
     }
 
     /**
@@ -410,7 +493,7 @@ public final class JavaProcessService {
                 }
                 long pid = Long.parseLong(name);
                 readPid(pid).ifPresent(info -> {
-                    if (isJavaProcess(info.commandLine())) {
+                    if (isJavaProcess(info.commandLine()) || looksLikeJavaExe(pid)) {
                         result.add(info);
                     }
                 });
@@ -419,6 +502,23 @@ public final class JavaProcessService {
             // empty
         }
         return result;
+    }
+
+    /**
+     * Fallback when {@code /proc/<pid>/cmdline} does not look like a Java launcher
+     * (e.g. truncated or rewritten args): resolve {@code /proc/<pid>/exe}.
+     */
+    private static boolean looksLikeJavaExe(long pid) {
+        Path exe = Path.of("/proc", Long.toString(pid), "exe");
+        try {
+            if (!Files.exists(exe)) {
+                return false;
+            }
+            Path real = exe.toRealPath();
+            return OsPlatform.looksLikeJavaBinary(real.toString());
+        } catch (Exception ex) {
+            return false;
+        }
     }
 
     private Optional<JavaProcessInfo> readPid(long pid) {
@@ -464,8 +564,19 @@ public final class JavaProcessService {
         }
         String[] parts = trimmed.split("\\s+");
         boolean jarNext = false;
-        for (String part : parts) {
+        for (int i = 0; i < parts.length; i++) {
+            String part = parts[i];
             if (jarNext) {
+                // Misplaced JVM flags after -jar (e.g. java -jar -XX:+PrintGCDetails app.jar):
+                // skip option tokens (and their values) until the real jar/main path.
+                if (part.startsWith("-")) {
+                    if (isJvmOptionTakingValue(part)
+                            && i + 1 < parts.length
+                            && !parts[i + 1].startsWith("-")) {
+                        i++;
+                    }
+                    continue;
+                }
                 return part;
             }
             if ("-jar".equals(part)) {
@@ -506,6 +617,36 @@ public final class JavaProcessService {
             return parts[i];
         }
         return "";
+    }
+
+    /** JVM launcher options whose next argv token is a value, not the program entry. */
+    private static boolean isJvmOptionTakingValue(String option) {
+        if (option == null || option.isBlank()) {
+            return false;
+        }
+        // Attached forms (-Dfoo=bar, -Xmx1g, -XX:..., -javaagent:path) do not consume a next token.
+        if (option.contains("=") || option.contains(":")) {
+            return false;
+        }
+        return switch (option) {
+            case "-cp",
+                    "-classpath",
+                    "--class-path",
+                    "-p",
+                    "--module-path",
+                    "-m",
+                    "--module",
+                    "--add-opens",
+                    "--add-exports",
+                    "--add-reads",
+                    "--add-modules",
+                    "--limit-modules",
+                    "--patch-module",
+                    "-javaagent",
+                    "-agentpath",
+                    "-agentlib" -> true;
+            default -> false;
+        };
     }
 
     private static boolean isLauncherOnlyCommandLine(String cmdline) {

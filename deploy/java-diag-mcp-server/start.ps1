@@ -52,11 +52,15 @@ function Get-JavaMajor([string]$JavaExe) {
         $ErrorActionPreference = $prevEap
     }
 
+    $ver = $null
     if ($out -match 'version\s+"([^"]+)"') {
         $ver = $Matches[1]
-        if ($ver -match '^1\.(\d+)') { return [int]$Matches[1] }
-        if ($ver -match '^(\d+)') { return [int]$Matches[1] }
+    } elseif ($out -match '(?m)^(?:openjdk|java)\s+(\d+(?:\.\d+)*)\b') {
+        # 无引号形态: openjdk 17 2024-07-16 LTS
+        $ver = $Matches[1]
     }
+    if ($ver -match '^1\.(\d+)') { return [int]$Matches[1] }
+    if ($ver -match '^(\d+)') { return [int]$Matches[1] }
     throw "无法解析 Java 版本: $out"
 }
 

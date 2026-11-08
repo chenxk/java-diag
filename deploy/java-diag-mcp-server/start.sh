@@ -2,12 +2,10 @@
 #
 # java-diag-mcp-server（探针）启停脚本（jar / properties 与脚本同目录）
 #
-# 用法:
-#   ./start.sh start      # 后台启动（默认）
-#   ./start.sh stop
-#   ./start.sh restart
-#   ./start.sh status
-#   ./start.sh foreground # 前台运行（Ctrl+C 停止）
+# 用法（须用 bash，勿用 sh start.sh；CentOS 上 sh 常为 dash，不支持 pipefail）:
+#   chmod +x start.sh && ./start.sh start
+#   bash start.sh start
+#   bash start.sh stop | restart | status | foreground
 #
 set -euo pipefail
 
@@ -46,13 +44,25 @@ require_java_and_files() {
     err "未找到 Java（请安装 JDK 17+ 或设置 JAVA_HOME）。尝试命令: $JAVA_BIN"
   fi
 
-  local java_major
-  java_major="$("$JAVA_BIN" -version 2>&1 | head -n1 | sed -E 's/.*"([0-9]+)(\.[0-9]+)*.*"/\1/' || true)"
-  if [[ -z "${java_major:-}" ]]; then
-    err "无法解析 Java 版本，请确认: $JAVA_BIN -version"
+  # java -version 写到 stderr；版本行常见形态：
+  #   openjdk version "17.0.11" 2024-07-16
+  #   openjdk 17 2024-07-16 LTS
+  # 旧 sed 只替换到闭引号，会把 " 后的日期残留进变量，导致 [[ -lt ]] 语法错误。
+  local ver_line raw java_major
+  ver_line="$("$JAVA_BIN" -version 2>&1 | head -n1 || true)"
+  raw="$(printf '%s\n' "$ver_line" | sed -n 's/.*"\([^"]*\)".*/\1/p')"
+  if [[ -z "$raw" ]]; then
+    raw="$(printf '%s\n' "$ver_line" | sed -n 's/^[^0-9]*\([0-9][0-9.]*\).*/\1/p')"
+  fi
+  case "$raw" in
+    1.*) java_major="$(printf '%s\n' "$raw" | cut -d. -f2)" ;; # 1.8.x → 8
+    *)   java_major="$(printf '%s\n' "$raw" | cut -d. -f1)" ;;
+  esac
+  if [[ ! "${java_major:-}" =~ ^[0-9]+$ ]]; then
+    err "无法解析 Java 版本（原始: ${ver_line:-<empty>}），请确认: $JAVA_BIN -version"
   fi
   if [[ "$java_major" -lt 17 ]]; then
-    err "需要 Java 17 或更高版本，当前 major=$java_major ($("$JAVA_BIN" -version 2>&1 | head -n1))"
+    err "需要 Java 17 或更高版本，当前 major=$java_major ($ver_line)"
   fi
 
   [[ -f "$JAR" ]] || err "缺少 jar: $JAR"
