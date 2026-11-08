@@ -1,11 +1,12 @@
 ﻿# java-diag-gateway Windows 启停脚本（jar / properties 与脚本同目录）
 #
-# 用法:
-#   .\start.ps1 start
-#   .\start.ps1 stop
-#   .\start.ps1 restart
-#   .\start.ps1 status
-#   .\start.ps1 foreground
+# 用法（推荐 start.cmd）:
+#   start.cmd start
+#   start.cmd stop
+#   start.cmd restart
+#   start.cmd status
+#   start.cmd foreground
+#   或直接: .\start.ps1 <命令>
 #
 param(
     [Parameter(Position = 0)]
@@ -35,16 +36,34 @@ function Get-JavaExe {
 }
 
 function Get-JavaMajor([string]$JavaExe) {
-    $out = & $JavaExe -version 2>&1 | Out-String
-    if ($out -match '"(\d+)(\.\d+)*"') {
-        return [int]$Matches[1]
+    # java -version 写到 stderr；$ErrorActionPreference=Stop 时会被当成 terminating error
+    $prevEap = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "SilentlyContinue"
+        $raw = cmd /c "`"$JavaExe`" -version 2>&1"
+        $out = ($raw | Out-String).Trim()
+        if (-not $out) {
+            $lines = @(& $JavaExe -version 2>&1)
+            $out = ($lines | ForEach-Object {
+                    if ($_ -is [System.Management.Automation.ErrorRecord]) { $_.ToString() } else { "$_" }
+                }) -join "`n"
+        }
+    } finally {
+        $ErrorActionPreference = $prevEap
+    }
+
+    if ($out -match 'version\s+"([^"]+)"') {
+        $ver = $Matches[1]
+        if ($ver -match '^1\.(\d+)') { return [int]$Matches[1] }
+        if ($ver -match '^(\d+)') { return [int]$Matches[1] }
     }
     throw "无法解析 Java 版本: $out"
 }
 
 function Show-Usage {
     @"
-用法: .\start.ps1 {start|stop|restart|status|foreground}
+用法: start.cmd {start|stop|restart|status|foreground}  （推荐）
+      或 .\start.ps1 <同上命令>
 
   start       后台启动（PID → gateway.pid，日志 → logs\gateway.out）
   stop        停止后台进程
