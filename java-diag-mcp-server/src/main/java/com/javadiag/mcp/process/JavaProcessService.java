@@ -583,7 +583,22 @@ public final class JavaProcessService {
                 jarNext = true;
                 continue;
             }
+            // -m / --module value is the entry point (module[/main]), not an option payload to skip.
+            if ("-m".equals(part) || "--module".equals(part)) {
+                if (i + 1 < parts.length && !parts[i + 1].startsWith("-")) {
+                    return parts[i + 1];
+                }
+                continue;
+            }
             if (part.startsWith("-")) {
+                // Critical: -cp / -classpath value is often a single argv token ending in ".jar"
+                // (colon/semicolon-separated). Skipping only the flag would mis-identify that
+                // classpath blob as the main, e.g. java -classpath /a:/b/lib.jar com.foo.Main.
+                if (isJvmOptionTakingValue(part)
+                        && i + 1 < parts.length
+                        && !parts[i + 1].startsWith("-")) {
+                    i++;
+                }
                 continue;
             }
             String lower = part.toLowerCase(Locale.ROOT);
@@ -695,7 +710,8 @@ public final class JavaProcessService {
 
     /**
      * True for jps-style main tokens: {@code *.jar} or FQCN ({@code com.foo.Bar}).
-     * Rejects ordinary filenames like {@code server.py}.
+     * Rejects ordinary filenames like {@code server.py}, and classpath lists that happen
+     * to end with {@code .jar} (e.g. {@code /a:/b/lib.jar} mistaken as a single jar path).
      */
     static boolean isJavaMainToken(String main) {
         if (main == null || main.isBlank()) {
@@ -703,7 +719,7 @@ public final class JavaProcessService {
         }
         String lower = main.toLowerCase(Locale.ROOT);
         if (lower.endsWith(".jar")) {
-            return true;
+            return isSingleJarPath(main);
         }
         if (main.indexOf('/') >= 0 || main.indexOf('\\') >= 0 || main.indexOf(' ') >= 0) {
             return false;
@@ -720,6 +736,29 @@ public final class JavaProcessService {
             return false;
         }
         return main.matches("[\\w.$]+");
+    }
+
+    /**
+     * A single jar path may be {@code app.jar} or {@code /path/app.jar} / {@code C:\path\app.jar}.
+     * Classpath lists ({@code a.jar:b.jar} / {@code a.jar;b.jar}) are not a main token.
+     */
+    private static boolean isSingleJarPath(String token) {
+        if (token.indexOf(';') >= 0) {
+            return false;
+        }
+        int colon = token.indexOf(':');
+        if (colon < 0) {
+            return true;
+        }
+        // Allow a single Windows drive prefix (C:\... or C:/...), but not Unix classpath colons.
+        boolean windowsDrive = colon == 1
+                && Character.isLetter(token.charAt(0))
+                && token.length() > 2
+                && (token.charAt(2) == '\\' || token.charAt(2) == '/');
+        if (!windowsDrive) {
+            return false;
+        }
+        return token.indexOf(':', 2) < 0;
     }
 
     private String readUser(Path procDir) {
