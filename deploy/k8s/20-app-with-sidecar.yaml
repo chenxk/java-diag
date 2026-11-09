@@ -1,0 +1,148 @@
+# 草稿：业务 Pod + java-diag 探针 Sidecar
+#
+# 要点：
+# 1) shareProcessNamespace=true —— 探针能 jps/jcmd 到业务容器里的 JVM
+# 2) 共享 emptyDir 挂业务日志目录 —— grep_log / cluster_errors 才读得到
+# 3) advertise.url 用 Pod IP:8765（下行用 status.podIP）；Gateway 须能访问该地址
+# 4) 探针镜像需带 JDK 工具（jps/jcmd），版本尽量贴近业务 JDK
+#
+# 用法：把 app 容器换成你们自己的镜像/启动命令后 apply
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-order-service
+  namespace: java-diag
+  labels:
+    app: order-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: order-service
+  template:
+    metadata:
+      labels:
+        app: order-service
+        version: v1
+    spec:
+      # 同 Pod 共享 PID 命名空间：sidecar 才能看到业务 JVM
+      shareProcessNamespace: true
+
+      containers:
+        # ---------- 业务容器 ----------
+        - name: app
+          image: your-registry/order-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: JAVA_OPTS
+              value: "-Xms256m -Xmx512m -DLOG_PATH=/var/log/app"
+          volumeMounts:
+            - name: app-logs
+              mountPath: /var/log/app
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+
+        # ---------- 诊断探针 Sidecar ----------
+        - name: java-diag
+          # TODO: 换成你们的探针镜像（建议基于 eclipse-temurin:17-jdk 打 jar）
+          image: your-registry/java-diag-mcp-server:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: mcp
+              containerPort: 8765
+          env:
+            - name: JAVA_DIAG_HTTP_HOST
+              value: "0.0.0.0"
+            - name: JAVA_DIAG_HTTP_PORT
+              value: "8765"
+            - name: JAVA_DIAG_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: java-diag-tokens
+                  key: probe-token
+            # 业务名：Gateway resolve_service / Admin 过滤用
+            - name: JAVA_DIAG_SERVICE_NAME
+              value: "order-service"
+            # 把 jar/mainClass 映射成稳定业务名（按需改）
+            - name: JAVA_DIAG_APP_NAME_MAP
+              value: "order-service=order-service,MeorientB2bRpcServer=meorientb2b-rpc"
+            # 日志白名单：必须覆盖下面挂载的日志目录
+            - name: JAVA_DIAG_ALLOWED_LOG_DIRS
+              value: "/var/log/app,/tmp"
+            # 注册到 Gateway（集群内 DNS）
+            - name: JAVA_DIAG_REGISTER_URL
+              value: "http://java-diag-gateway.java-diag.svc.cluster.local:8787"
+            - name: JAVA_DIAG_REGISTRY_REGISTER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: java-diag-tokens
+                  key: register-token
+                  optional: true
+            - name: JAVA_DIAG_HEARTBEAT_INTERVAL_SECONDS
+              value: "20"
+            # advertise = Gateway 回调探针的地址；用 Pod IP（须集群内可达）
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: JAVA_DIAG_ADVERTISE_URL
+              value: "http://$(POD_IP):8765"
+            # K8s 元数据打成 tags，便于 list_instances / resolve 过滤
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: JAVA_DIAG_TAGS
+              value: "app=order-service,namespace=$(POD_NAMESPACE),pod=$(POD_NAME),node=$(NODE_NAME),env=test"
+          volumeMounts:
+            - name: app-logs
+              mountPath: /var/log/app
+              readOnly: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          # 探针是 HTTP MCP；没有统一 healthz 时可用 TCP
+          readinessProbe:
+            tcpSocket:
+              port: mcp
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+      volumes:
+        - name: app-logs
+          emptyDir: {}
+
+---
+# 业务 Service（与诊断无关，示例）
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+  namespace: java-diag
+spec:
+  selector:
+    app: order-service
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

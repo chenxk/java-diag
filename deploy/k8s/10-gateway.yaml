@@ -1,0 +1,80 @@
+# 草稿：集群入口 Gateway（Agent 只连这个 Service）
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: java-diag-gateway
+  namespace: java-diag
+  labels:
+    app: java-diag-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: java-diag-gateway
+  template:
+    metadata:
+      labels:
+        app: java-diag-gateway
+    spec:
+      containers:
+        - name: gateway
+          # TODO: 换成你们的镜像仓库地址
+          image: your-registry/java-diag-gateway:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8787
+          env:
+            - name: JAVA_DIAG_HTTP_HOST
+              value: "0.0.0.0"
+            - name: JAVA_DIAG_HTTP_PORT
+              value: "8787"
+            - name: JAVA_DIAG_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: java-diag-tokens
+                  key: agent-token
+            - name: JAVA_DIAG_REGISTRY_REGISTER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: java-diag-tokens
+                  key: register-token
+                  optional: true
+            - name: JAVA_DIAG_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: java-diag-tokens
+                  key: admin-user
+            - name: JAVA_DIAG_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: java-diag-tokens
+                  key: admin-password
+            - name: JAVA_DIAG_HEARTBEAT_TTL_SECONDS
+              value: "90"
+          readinessProbe:
+            httpGet:
+              path: /admin/
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: java-diag-gateway
+  namespace: java-diag
+spec:
+  selector:
+    app: java-diag-gateway
+  ports:
+    - name: http
+      port: 8787
+      targetPort: http
