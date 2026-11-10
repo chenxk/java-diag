@@ -6,6 +6,67 @@
 - **网关** `java-diag-gateway`：集群入口 + 内置心跳注册；Agent 可只连 Gateway，也仍可直连探针
 - **平台**：Windows / macOS / Linux（进程发现：Linux 优先 `/proc`，其它平台走 `jps` / `ProcessHandle`）
 
+## 实现原理
+
+**一句话**：诊断能力在探针本机执行；Gateway 只做注册发现与 MCP 工具代理，**自己不跑 jcmd、不读业务日志**。
+
+### 角色
+
+| 角色 | 做什么 | 不做什么 |
+|------|--------|----------|
+| **Agent**（Cursor 等） | 调 MCP 工具、带 `target` / `pid` | 不直连业务 JVM |
+| **Gateway** | 鉴权、心跳 Registry、按 `target` 选节点、把 tool call 转发到探针 | 不采集日志 / JVM |
+| **Probe** | 本机进程发现、读白名单日志、`jps`/`jcmd` 等 | 不跨机抓别的节点 |
+
+### 单机（Agent 直连探针）
+
+```mermaid
+flowchart LR
+  Agent["Agent / IDE"] -->|"MCP SSE + Bearer"| Probe["java-diag-mcp-server"]
+  Probe --> Logs["本机日志文件"]
+  Probe --> Jvm["本机 JVM / jcmd"]
+```
+
+适合一台机器排查：Agent 配置探针的 `http://host:8765/sse` 即可。
+
+### 集群（Agent 只连 Gateway）
+
+```mermaid
+flowchart TB
+  Agent["Agent / IDE"] -->|"MCP SSE + Bearer"| GW["java-diag-gateway"]
+
+  subgraph registry ["Built-in Registry"]
+    HB["心跳注册表<br/>instanceId / mcpBaseUrl / apps[] / tags"]
+  end
+
+  GW <-->|"register / heartbeat"| HB
+  GW -->|"解析 target → 唯一探针"| ProbeA["Probe A<br/>业务机 / Pod"]
+  GW -->|"MCP 短连接 callTool"| ProbeB["Probe B"]
+  GW -->|"多命中则返回 candidates"| ProbeN["Probe …"]
+
+  ProbeA --> LocalA["本机日志 + JVM"]
+  ProbeB --> LocalB["本机日志 + JVM"]
+```
+
+**请求怎么落到具体节点：**
+
+1. 探针启动时带 `--register-url` / `--advertise-url` 向 Gateway 注册，并定期心跳；Registry 里记下 `mcpBaseUrl`（对外可达的探针地址）和本机 `apps[]`（JVM 目录）。
+2. Agent 调用工具时带上 `target`（`instanceId` / `mcpBaseUrl` / `serviceName`+`tags`），或先用 `diag.resolve_service` / `diag.list_instances` 选机。
+3. Gateway 在 Registry 里解析：
+   - **0 个** → `INSTANCE_NOT_FOUND`
+   - **多个** → 返回 `candidates`，**不静默选机**
+   - **正好 1 个** → 作为 MCP 客户端，短连接该探针的 `mcpBaseUrl`，转发去掉 `target` 后的参数并原样回传结果（含 `routedInstanceId`）
+
+```text
+Agent ──MCP──▶ Gateway ──选节点──▶ Probe MCP ──本机执行──▶ 日志 / jcmd
+                 ▲                    │
+                 └──── 心跳注册 ───────┘
+```
+
+因此：**网络上 Gateway 必须能访问各探针的 advertise 地址**；K8s 场景通常每 Pod 挂 Sidecar 探针（见 [`deploy/k8s/README.md`](deploy/k8s/README.md)）。
+
+更细的模块与工具约定见 [`docs/TECH_ARCHITECTURE.md`](docs/TECH_ARCHITECTURE.md)。
+
 ## 构建
 
 ```bash
