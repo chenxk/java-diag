@@ -1,0 +1,12 @@
+# Gateway image — build jars first: mvn -q -pl java-diag-gateway -am package
+# docker build -f deploy/Dockerfile.gateway -t java-diag-gateway:local .
+FROM eclipse-temurin:17-jre-jammy
+
+WORKDIR /opt/java-diag
+COPY java-diag-gateway/target/java-diag-gateway.jar /opt/java-diag/app.jar
+
+ENV JAVA_DIAG_HTTP_HOST=0.0.0.0 \
+    JAVA_DIAG_HTTP_PORT=8787
+
+EXPOSE 8787
+ENTRYPOINT ["java", "-jar", "/opt/java-diag/app.jar"]

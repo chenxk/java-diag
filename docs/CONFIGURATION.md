@@ -111,7 +111,7 @@ Gateway **仅 HTTP**。
 | `register.token` | `JAVA_DIAG_REGISTRY_REGISTER_TOKEN` | 空 | Registry API 鉴权 |
 | `dump.cooldown.ms` | `JAVA_DIAG_DUMP_COOLDOWN_MS` | `10000` | 代理侧 dump 冷却 |
 | `admin.user` | `JAVA_DIAG_ADMIN_USER` | `admin` | 控制台用户名 |
-| `admin.password` | `JAVA_DIAG_ADMIN_PASSWORD` | `java-diag` | 控制台密码 |
+| `admin.password` | `JAVA_DIAG_ADMIN_PASSWORD` | `java-diag`（示例请改为强密码） | 控制台密码 |
 
 ### 2.1 CLI（薄入口）
 

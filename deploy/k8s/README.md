@@ -39,7 +39,7 @@ java-diag-gateway  (:8787)
 ## 快速部署
 
 ```bash
-# 1) 改 Secret 里的 token / 密码
+# 1) 把 00-namespace-secrets.yaml 里全部 CHANGE_ME_* 改成强随机值
 # 2) 把 YAML 中的 your-registry/... 换成真实镜像
 # 3) 按需改 20 里的业务镜像与日志路径
 
@@ -59,7 +59,7 @@ kubectl -n java-diag logs deploy/demo-order-service -c java-diag --tail=50
 管理控制台（需把 Gateway 端口暴露到本机或经 Ingress）：
 
 - URL：`http://<gateway-host>:8787/admin/`
-- 默认账号见 Secret：`admin` / `java-diag`
+- 账号见 Secret：`admin-user` / `admin-password`（勿使用仓库占位值）
 
 ## Sidecar 必配项（`20-app-with-sidecar.yaml`）
 
@@ -83,7 +83,7 @@ kubectl -n java-diag logs deploy/demo-order-service -c java-diag --tail=50
   "mcpServers": {
     "java-diag-cluster": {
       "url": "http://<gateway-host>:8787/sse",
-      "headers": { "Authorization": "Bearer agent-secret" }
+      "headers": { "Authorization": "Bearer YOUR_AGENT_TOKEN" }
     }
   }
 }

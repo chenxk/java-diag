@@ -36,7 +36,7 @@ dump.cooldown.ms=10000
 # --- Admin 控制台（/admin/）---
 # 控制台登录用户名
 admin.user=admin
-# 控制台登录密码（部署后务必修改）
+# 控制台登录密码（与内置默认一致；共享/生产环境务必改为强密码）
 admin.password=java-diag
 
 # Legacy env 键亦可在本文件中书写，例如 JAVA_DIAG_AUTH_TOKEN=secret

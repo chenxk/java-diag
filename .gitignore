@@ -7,7 +7,9 @@ target/
 .vscode/
 logs/
 *.log
+*.jar
 .DS_Store
 dependency-reduced-pom.xml
 agent-tools/
 *.pid
+*.hprof

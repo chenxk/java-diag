@@ -5,6 +5,8 @@
 - **探针** `java-diag-mcp-server`：部署在业务机，HTTP MCP（也可 `--stdio`）
 - **网关** `java-diag-gateway`：集群入口 + 内置心跳注册；Agent 可只连 Gateway，也仍可直连探针
 - **平台**：Windows / macOS / Linux（进程发现：Linux 优先 `/proc`，其它平台走 `jps` / `ProcessHandle`）
+- **License**：[MIT](LICENSE)（探针与 Gateway 均开源）
+- **安全说明**：[SECURITY.md](SECURITY.md) · **贡献**：[CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## 实现原理
 
@@ -73,10 +75,24 @@ Agent ──MCP──▶ Gateway ──选节点──▶ Probe MCP ──本机
 mvn -q clean package
 ```
 
-产物：
+产物（fat jar，**不入库**；发版请用 CI artifact / GitHub Release）：
 
 - `java-diag-mcp-server/target/java-diag-mcp-server.jar`
 - `java-diag-gateway/target/java-diag-gateway.jar`
+
+本地脚本目录 `deploy/java-diag-*/` 需要自行拷贝 jar：
+
+```bash
+cp java-diag-mcp-server/target/java-diag-mcp-server.jar deploy/java-diag-mcp-server/
+cp java-diag-gateway/target/java-diag-gateway.jar deploy/java-diag-gateway/
+```
+
+Docker（先 `mvn package`）：
+
+```bash
+docker build -f deploy/Dockerfile.probe -t java-diag-mcp-server:local .
+docker build -f deploy/Dockerfile.gateway -t java-diag-gateway:local .
+```
 
 ## 配置
 
@@ -98,7 +114,7 @@ java -jar java-diag-gateway.jar --help
 ```bash
 cp java-diag-mcp-server/src/main/resources/java-diag-mcp-server.properties.example \
    ./java-diag-mcp-server.properties
-# 编辑 auth.token、allowed.log.dirs 等
+# 编辑 auth.token（勿使用文档占位值）、allowed.log.dirs 等
 java -jar java-diag-mcp-server/target/java-diag-mcp-server.jar \
   --config ./java-diag-mcp-server.properties
 ```
@@ -110,7 +126,7 @@ Agent 直连：
   "mcpServers": {
     "java-diag": {
       "url": "http://10.0.1.11:8765/sse",
-      "headers": { "Authorization": "Bearer probe-secret" }
+      "headers": { "Authorization": "Bearer YOUR_PROBE_TOKEN" }
     }
   }
 }
@@ -125,10 +141,10 @@ java -jar java-diag-gateway/target/java-diag-gateway.jar \
   --config ./java-diag-gateway.properties
 ```
 
-Registry（`/registry/*`）无共享密钥：信任内网；Agent→Gateway 仍用 `--token`。
+Registry（`/registry/*`）默认无共享密钥：仅适合信任内网；Agent→Gateway 仍应配置 `--token`。
 
 **管理控制台**（浏览器查看已注册探针）：`http://<gateway-host>:8787/admin/`  
-默认账号 `admin` / `java-diag`（可用 `JAVA_DIAG_ADMIN_USER` / `JAVA_DIAG_ADMIN_PASSWORD` 覆盖）。
+账号由 `admin.user` / `admin.password` 配置（示例里为占位 `CHANGE_ME_*`，部署前必须改掉）。
 
 ### 2) 启动探针并注册
 
@@ -148,7 +164,7 @@ java -jar java-diag-mcp-server/target/java-diag-mcp-server.jar \
   "mcpServers": {
     "java-diag-cluster": {
       "url": "http://gateway-host:8787/sse",
-      "headers": { "Authorization": "Bearer agent-secret" }
+      "headers": { "Authorization": "Bearer YOUR_AGENT_TOKEN" }
     }
   }
 }
@@ -169,16 +185,17 @@ java -jar java-diag-mcp-server/target/java-diag-mcp-server.jar \
 | 项 | 结论 |
 |----|------|
 | 发现 | 心跳注册（Built-in Registry） |
-| Gateway | 独立 jar |
+| Gateway | 独立 jar（与探针同为 MIT） |
 | 直连探针 | 允许 |
 | 多副本 | 返回 candidates，Agent 选 |
-| Registry 鉴权 | 信任内网，无 register-token；Agent→Gateway 保留 `--token` |
+| Registry 鉴权 | 默认信任内网；需要时可开 `register.token`；Agent→Gateway 保留 `--token` |
 
-详见项目 Agent Store：`docs/CLUSTER_DESIGN.md`。
+架构细节：[docs/TECH_ARCHITECTURE.md](docs/TECH_ARCHITECTURE.md) · 配置全集：[docs/CONFIGURATION.md](docs/CONFIGURATION.md) · K8s 草稿：[deploy/k8s/README.md](deploy/k8s/README.md)
 
 ## 工具（探针）
 
-Meta / Logs / JVM：`diag.ping` … `diag.gc_histo`（共 12 个）。Gateway 另提供 `diag.list_instances`、`diag.resolve_service` 并代理上述工具。
+Meta / Logs / JVM：`diag.ping`、`diag.list_processes`、`diag.resolve_java_pid`、`diag.log_paths`、`diag.tail_log`、`diag.grep_log`、`diag.cluster_errors`、`diag.runtime_summary`、`diag.jstat`、`diag.thread_dump`、`diag.vm_flags`、`diag.gc_histo`、`diag.vm_info`、`diag.heap_dump`、`diag.cpu_sample`。  
+Gateway 另提供 `diag.list_instances`、`diag.resolve_service`，并代理上述探针工具。
 
 ## 测试
 
@@ -186,6 +203,8 @@ Meta / Logs / JVM：`diag.ping` … `diag.gc_histo`（共 12 个）。Gateway �
 mvn -q test
 ```
 
+CI：`.github/workflows/ci.yml`（JDK 17 / 21）。
+
 ## License
 
-MIT
+[MIT](LICENSE)

@@ -48,7 +48,7 @@ P0（12）：`diag.ping` … `diag.gc_histo` — 只读、审计、白名单、�
 | grep/cluster `since` 时间过滤；log_paths cmdline 推断 | ✅ Top5 |
 | 探针无独立 instance-id；身份 = advertise host:port | ✅ |
 | 允许 Agent 直连探针 | ✅（设计 + 行为） |
-| Nacos / HA | ❌ P2 |
+| 注册发现 | ✅ 仅 Gateway 内嵌 Registry（不对接第三方注册中心） |
 
 ## 文档
 
