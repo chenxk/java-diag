@@ -15,12 +15,15 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RegistryServletAuthTest {
+
+    private static final String REG_TOKEN = "reg-secret";
 
     private Server jetty;
     private int port;
@@ -38,7 +41,7 @@ class RegistryServletAuthTest {
         ServletContextHandler context = new ServletContextHandler();
         context.setContextPath("/");
         context.addServlet(
-                new ServletHolder(new RegistryServlet(registry, json)),
+                new ServletHolder(new RegistryServlet(registry, json, Optional.of(REG_TOKEN))),
                 "/registry/*");
         jetty.setHandler(context);
         jetty.start();
@@ -53,7 +56,16 @@ class RegistryServletAuthTest {
     }
 
     @Test
-    void acceptsRegisterWithoutToken() throws Exception {
+    void rejectsRegisterWithoutToken() throws Exception {
+        HttpResponse<String> resp = post("/registry/register", """
+                {"instanceId":"a","serviceName":"svc","mcpBaseUrl":"http://127.0.0.1:8765","probeToken":"p"}
+                """, null);
+        assertEquals(401, resp.statusCode());
+        assertEquals(0, registry.size());
+    }
+
+    @Test
+    void acceptsRegisterWithToken() throws Exception {
         HttpResponse<String> resp = post("/registry/register", """
                 {"instanceId":"a","serviceName":"svc","mcpBaseUrl":"http://127.0.0.1:8765","probeToken":"p"}
                 """);
@@ -95,7 +107,7 @@ class RegistryServletAuthTest {
     }
 
     @Test
-    void acceptsHeartbeatAndDeregisterWithoutToken() throws Exception {
+    void acceptsHeartbeatAndDeregisterWithToken() throws Exception {
         assertEquals(200, post("/registry/register", """
                 {"instanceId":"b","mcpBaseUrl":"http://127.0.0.1:8765"}
                 """).statusCode());
@@ -134,7 +146,7 @@ class RegistryServletAuthTest {
     }
 
     @Test
-    void requiresRegisterTokenWhenConfigured() throws Exception {
+    void emptyConfiguredTokenRejectsAllWrites() throws Exception {
         jetty.stop();
         JsonSupport json = JsonSupport.createDefault();
         jetty = new Server();
@@ -145,7 +157,7 @@ class RegistryServletAuthTest {
         ServletContextHandler context = new ServletContextHandler();
         context.setContextPath("/");
         context.addServlet(
-                new ServletHolder(new RegistryServlet(registry, json, java.util.Optional.of("reg-secret"))),
+                new ServletHolder(new RegistryServlet(registry, json, Optional.empty())),
                 "/registry/*");
         jetty.setHandler(context);
         jetty.start();
@@ -155,16 +167,10 @@ class RegistryServletAuthTest {
                 {"instanceId":"x","mcpBaseUrl":"http://127.0.0.1:8765"}
                 """, null);
         assertEquals(401, denied.statusCode());
-
-        HttpResponse<String> ok = post("/registry/register", """
-                {"instanceId":"x","mcpBaseUrl":"http://127.0.0.1:8765"}
-                """, "reg-secret");
-        assertEquals(200, ok.statusCode());
-        assertEquals(1, registry.size());
     }
 
     private HttpResponse<String> post(String path, String body) throws Exception {
-        return post(path, body, null);
+        return post(path, body, REG_TOKEN);
     }
 
     private HttpResponse<String> post(String path, String body, String registryToken) throws Exception {

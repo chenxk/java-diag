@@ -15,9 +15,9 @@ java-diag is a **read-oriented** diagnostics helper for Java processes:
 ## Deployment assumptions
 
 1. Run probes and the gateway on a **trusted network** (VPC / cluster CNI). Do not expose `/sse`, `/mcp`, or `/registry/*` to the public Internet without additional controls.
-2. Always set strong tokens:
+2. Always set strong non-empty tokens (startup fails if blank):
    - Probe / Gateway Agent Bearer (`auth.token`)
-   - Optional Registry token (`register.token`) when the registry API is reachable beyond a tight trust boundary
+   - Registry API Bearer (`register.token`) — probe and gateway must match
    - Admin console password (`admin.password`) — change the default before any shared environment
 3. Keep `allowed.log.dirs` as narrow as practical.
 4. Gateway must be able to reach each probe’s `advertise.url`; treat that path as an internal admin channel.

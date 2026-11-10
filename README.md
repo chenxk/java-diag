@@ -114,7 +114,7 @@ java -jar java-diag-gateway.jar --help
 ```bash
 cp java-diag-mcp-server/src/main/resources/java-diag-mcp-server.properties.example \
    ./java-diag-mcp-server.properties
-# 编辑 auth.token（勿使用文档占位值）、allowed.log.dirs 等
+# 编辑 auth.token / register.token（必填，勿用占位值）、allowed.log.dirs 等
 java -jar java-diag-mcp-server/target/java-diag-mcp-server.jar \
   --config ./java-diag-mcp-server.properties
 ```
@@ -141,7 +141,7 @@ java -jar java-diag-gateway/target/java-diag-gateway.jar \
   --config ./java-diag-gateway.properties
 ```
 
-Registry（`/registry/*`）默认无共享密钥：仅适合信任内网；Agent→Gateway 仍应配置 `--token`。
+`auth.token` 与 `register.token` 均为必填（空则启动失败）；探针与网关的 `register.token` 须一致。
 
 **管理控制台**（浏览器查看已注册探针）：`http://<gateway-host>:8787/admin/`  
 账号由 `admin.user` / `admin.password` 配置（示例里为占位 `CHANGE_ME_*`，部署前必须改掉）。
@@ -188,7 +188,7 @@ java -jar java-diag-mcp-server/target/java-diag-mcp-server.jar \
 | Gateway | 独立 jar（与探针同为 MIT） |
 | 直连探针 | 允许 |
 | 多副本 | 返回 candidates，Agent 选 |
-| Registry 鉴权 | 默认信任内网；需要时可开 `register.token`；Agent→Gateway 保留 `--token` |
+| 鉴权 | `auth.token`（Agent/MCP）与 `register.token`（`/registry/*`）均必填且不可为空 |
 
 架构细节：[docs/TECH_ARCHITECTURE.md](docs/TECH_ARCHITECTURE.md) · 配置全集：[docs/CONFIGURATION.md](docs/CONFIGURATION.md) · K8s 草稿：[deploy/k8s/README.md](deploy/k8s/README.md)
 

@@ -65,7 +65,11 @@ class AdminApiServletTest {
         JsonSupport json = JsonSupport.createDefault();
         AdminCredentials creds = new AdminCredentials("admin", "java-diag");
         gatewayConfig =
-                GatewayConfig.from(Map.of(GatewayConfig.ENV_AUTH_TOKEN, "agent-secret"), java.util.List.of());
+                GatewayConfig.from(
+                        Map.of(
+                                GatewayConfig.ENV_AUTH_TOKEN, "agent-secret",
+                                GatewayConfig.ENV_REGISTRY_REGISTER_TOKEN, "reg-secret"),
+                        java.util.List.of());
 
         jetty = new Server();
         ServerConnector connector = new ServerConnector(jetty);

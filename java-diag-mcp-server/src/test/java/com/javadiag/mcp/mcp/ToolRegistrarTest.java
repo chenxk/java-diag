@@ -21,6 +21,8 @@ class ToolRegistrarTest {
     @Test
     void registersAllP0Tools() {
         DiagConfig config = DiagConfig.fromEnvironment(Map.of(
+                DiagConfig.ENV_AUTH_TOKEN, "test-auth",
+                DiagConfig.ENV_REGISTRY_REGISTER_TOKEN, "test-reg",
                 DiagConfig.ENV_ALLOWED_LOG_DIRS, tempDir.toString(),
                 DiagConfig.ENV_AUDIT_PATH, tempDir.resolve("audit.log").toString()));
         ToolRegistrar registrar = new ToolRegistrar(ToolSupport.create(config, JsonCodec.createDefault()));

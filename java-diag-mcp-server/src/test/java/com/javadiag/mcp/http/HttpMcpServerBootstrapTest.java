@@ -42,6 +42,7 @@ class HttpMcpServerBootstrapTest {
                 DiagConfig.ENV_HTTP_HOST, "127.0.0.1",
                 DiagConfig.ENV_HTTP_PORT, Integer.toString(port),
                 DiagConfig.ENV_AUTH_TOKEN, "secret-token",
+                DiagConfig.ENV_REGISTRY_REGISTER_TOKEN, "reg-secret",
                 DiagConfig.ENV_ALLOWED_LOG_DIRS, tempDir.toString(),
                 DiagConfig.ENV_AUDIT_PATH, tempDir.resolve("audit.log").toString()));
 

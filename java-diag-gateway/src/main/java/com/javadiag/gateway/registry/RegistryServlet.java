@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
 
 /**
  * Control-plane HTTP API: /registry/register|heartbeat|deregister|instances.
- * Optional register-token auth ({@code JAVA_DIAG_REGISTRY_REGISTER_TOKEN}); default trust intranet.
+ * Requires non-empty register-token ({@code JAVA_DIAG_REGISTRY_REGISTER_TOKEN} / {@code register.token}).
  */
 public final class RegistryServlet extends HttpServlet {
 
@@ -250,8 +250,9 @@ public final class RegistryServlet extends HttpServlet {
     }
 
     boolean authorizeRegister(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        if (registerToken.isEmpty()) {
-            return true;
+        if (registerToken.isEmpty() || registerToken.get().isBlank()) {
+            writeJson(resp, 401, Map.of("ok", false, "error", "registry register token is not configured"));
+            return false;
         }
         String expected = registerToken.get();
         String auth = req.getHeader("Authorization");

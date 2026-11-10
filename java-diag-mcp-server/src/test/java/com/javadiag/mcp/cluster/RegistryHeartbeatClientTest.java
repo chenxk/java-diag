@@ -6,23 +6,29 @@ import com.javadiag.mcp.process.JavaProcessService;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RegistryHeartbeatClientTest {
 
+    private static Map<String, String> withTokens(Map<String, String> extra) {
+        Map<String, String> env = new HashMap<>();
+        env.put(DiagConfig.ENV_AUTH_TOKEN, "probe-secret");
+        env.put(DiagConfig.ENV_REGISTRY_REGISTER_TOKEN, "reg-secret");
+        env.putAll(extra);
+        return env;
+    }
+
     @Test
-    void registerPayloadIncludesProbeTokenWhenConfigured() throws Exception {
+    void registerPayloadIncludesProbeToken() throws Exception {
         DiagConfig config = DiagConfig.fromEnvironment(
-                Map.of(
-                        DiagConfig.ENV_AUTH_TOKEN, "probe-secret",
-                        DiagConfig.ENV_SERVICE_NAME, "order"),
+                withTokens(Map.of(DiagConfig.ENV_SERVICE_NAME, "order")),
                 List.of("--port", "8765", "--register-url", "http://127.0.0.1:8787"));
         RegistryHeartbeatClient client = new RegistryHeartbeatClient(config, JsonCodec.createDefault());
 
@@ -36,24 +42,11 @@ class RegistryHeartbeatClientTest {
     }
 
     @Test
-    void registerPayloadOmitsProbeTokenWhenUnset() throws Exception {
-        DiagConfig config = DiagConfig.fromEnvironment(
-                Map.of(), List.of("--port", "8765", "--register-url", "http://127.0.0.1:8787"));
-        RegistryHeartbeatClient client = new RegistryHeartbeatClient(config, JsonCodec.createDefault());
-
-        @SuppressWarnings("unchecked")
-        Map<String, Object> payload =
-                (Map<String, Object>) invokeBuildPayload(client);
-
-        assertNull(payload.get("probeToken"));
-    }
-
-    @Test
     void registerPayloadMayIncludeAppsWhenProcessServiceAttached() throws Exception {
         DiagConfig config = DiagConfig.fromEnvironment(
-                Map.of(
+                withTokens(Map.of(
                         DiagConfig.ENV_APP_NAME_MAP, "java-diag=java-diag",
-                        DiagConfig.ENV_SERVICE_NAME, "order"),
+                        DiagConfig.ENV_SERVICE_NAME, "order")),
                 List.of("--port", "8765", "--register-url", "http://127.0.0.1:8787"));
         JavaProcessService processes = new JavaProcessService(Optional.empty());
         RegistryHeartbeatClient client = new RegistryHeartbeatClient(config, JsonCodec.createDefault(), processes);

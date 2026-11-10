@@ -23,9 +23,7 @@ public final class RootInfoServlet extends HttpServlet {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         resp.setStatus(HttpServletResponse.SC_OK);
         resp.setContentType("text/plain; charset=utf-8");
-        String authHint = config.authToken().isPresent()
-                ? "Authorization: Bearer <JAVA_DIAG_AUTH_TOKEN>"
-                : "(no auth token configured — set JAVA_DIAG_AUTH_TOKEN in production)";
+        String authHint = "Authorization: Bearer <auth.token / JAVA_DIAG_AUTH_TOKEN>";
         String body = """
                 java-diag MCP server %s
                 instanceId=%s

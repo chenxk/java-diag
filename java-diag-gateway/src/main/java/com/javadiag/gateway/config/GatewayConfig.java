@@ -156,9 +156,22 @@ public final class GatewayConfig {
         if (ttl < 5) {
             throw new IllegalArgumentException("heartbeat TTL must be >= 5 seconds");
         }
+        auth = requireConfiguredToken(auth, PROP_AUTH_TOKEN, ENV_AUTH_TOKEN, "--token / --auth-token");
+        registryToken = requireConfiguredToken(
+                registryToken, PROP_REGISTER_TOKEN, ENV_REGISTRY_REGISTER_TOKEN, "--register-token");
         return new GatewayConfig(
                 host, port, auth, ttl, instanceId, "0.1.0", auditPath, registryToken, dumpCooldown, adminUser,
                 adminPassword);
+    }
+
+    /** Agent MCP and Registry tokens are mandatory — empty means unauthenticated control plane. */
+    static Optional<String> requireConfiguredToken(
+            Optional<String> value, String propKey, String envKey, String cliHint) {
+        if (value.isEmpty() || value.get().isBlank()) {
+            throw new IllegalArgumentException(
+                    propKey + " is required (also " + envKey + " or " + cliHint + "); empty tokens are not allowed");
+        }
+        return value;
     }
 
     private static String requireValue(List<String> args, int index, String flag) {

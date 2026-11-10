@@ -52,15 +52,14 @@ public final class JavaDiagGateway {
                   --config <file>
                   --host <addr>                     default 0.0.0.0
                   --port <port>                     default 8787
-                  --token / --auth-token <value>    Agent Bearer token
-                  --register-token <value>          registry API hardening (optional)
+                  --token / --auth-token <value>    Agent Bearer token (required)
+                  --register-token <value>          registry API Bearer (required)
                   --admin-user / --admin-password   admin console (prefer properties file)
 
                 Less common (properties or env):
                   --heartbeat-ttl-seconds <n>       default 90, must be >= 5
 
-                Registry (/registry/*): no auth by default (trust intranet). Set register-token for LAN hardening.
-                Keep the gateway registry port off the public internet.
+                auth.token and register.token are mandatory (non-empty). Keep /registry/* off the public internet.
 
                 Endpoints:
                   /sse  /mcp          Agent MCP

@@ -122,10 +122,10 @@ public final class JavaDiagMcpServer {
                   --http | --stdio
                   --host <addr>                default 0.0.0.0
                   --port <port>                default 8765
-                  --token / --auth-token <v>   Bearer token
+                  --token / --auth-token <v>   Agent/MCP Bearer (required)
                   --service-name <name>        optional; default primary IP
                   --register-url <gateway>     enables heartbeat
-                  --register-token <value>     /registry/* when gateway requires it
+                  --register-token <value>     registry Bearer (required; match gateway)
                   --advertise-url <url>        public MCP base URL (instanceId = host:port)
 
                 Other CLI (less common; prefer properties file):

@@ -22,6 +22,8 @@
 
 Properties 内可使用 **点分键**（推荐）或 legacy **`JAVA_DIAG_*` env 同名键**。
 
+**安全**：`auth.token` 与 `register.token` 均为**必填且不可为空**（探针与网关都强制）；空值启动失败。探针与网关的 `register.token` 须一致。
+
 ```bash
 java -jar java-diag-mcp-server.jar --help
 java -jar java-diag-gateway.jar --help
@@ -38,7 +40,7 @@ java -jar java-diag-gateway.jar --help
 | `transport` | `JAVA_DIAG_TRANSPORT` | `http` | `http`/`stdio`（别名 sse/remote→http，stdio/std/local→stdio） |
 | `http.host` | `JAVA_DIAG_HTTP_HOST` | `0.0.0.0` | HTTP 监听地址 |
 | `http.port` | `JAVA_DIAG_HTTP_PORT` | `8765` | HTTP 监听端口 |
-| `auth.token` | `JAVA_DIAG_AUTH_TOKEN` | 空 | Agent Bearer；未设置启动 WARNING |
+| `auth.token` | `JAVA_DIAG_AUTH_TOKEN` | **必填** | Agent / MCP Bearer；空则启动失败 |
 | `allowed.log.dirs` | `JAVA_DIAG_ALLOWED_LOG_DIRS` | 平台默认目录 | 逗号分隔日志白名单 |
 | `allowed.main.class.regex` | `JAVA_DIAG_ALLOWED_MAIN_CLASS_REGEX` | 空 | main class 正则过滤 |
 | `tool.timeout.ms` | `JAVA_DIAG_TOOL_TIMEOUT_MS` | `15000` | 工具子进程超时 |
@@ -49,7 +51,7 @@ java -jar java-diag-gateway.jar --help
 | `dump.timeout.ms` | `JAVA_DIAG_DUMP_TIMEOUT_MS` | `30000` | heap/thread dump 等子进程超时 |
 | `service.name` | `JAVA_DIAG_SERVICE_NAME` | 主网卡 IP | 集群服务名 |
 | `register.url` | `JAVA_DIAG_REGISTER_URL` | 空 | Gateway 根 URL，设置后启用心跳 |
-| `register.token` | `JAVA_DIAG_REGISTRY_REGISTER_TOKEN` | 空 | `/registry/*` Bearer |
+| `register.token` | `JAVA_DIAG_REGISTRY_REGISTER_TOKEN` | **必填** | Gateway `/registry/*` Bearer；须与网关一致 |
 | `advertise.url` | `JAVA_DIAG_ADVERTISE_URL` | 空 | 对外 MCP base URL；决定 `instanceId` |
 | `heartbeat.interval.seconds` | `JAVA_DIAG_HEARTBEAT_INTERVAL_SECONDS` | `20` | 心跳间隔（有效 ≥5） |
 | `tags` | `JAVA_DIAG_TAGS` | 空 | `k=v,k2=v2` |
@@ -81,15 +83,15 @@ java -jar java-diag-gateway.jar --help
 ```bash
 cp java-diag-mcp-server/src/main/resources/java-diag-mcp-server.properties.example \
    ./java-diag-mcp-server.properties
-# 编辑 auth.token、allowed.log.dirs、register.url 等
+# 编辑 auth.token / register.token（必填）、allowed.log.dirs、register.url 等
 
 java -jar java-diag-mcp-server.jar --config ./java-diag-mcp-server.properties
 
 # 临时覆盖端口
 java -jar java-diag-mcp-server.jar --config ./java-diag-mcp-server.properties --port 8766
 
-# 本地 IDE
-java -jar java-diag-mcp-server.jar --stdio
+# 本地 IDE（仍须提供两个 token：文件 / env / CLI）
+java -jar java-diag-mcp-server.jar --stdio --token probe-secret --register-token reg-secret
 ```
 
 ---
@@ -104,11 +106,11 @@ Gateway **仅 HTTP**。
 |---------------|----------|--------|------|
 | `http.host` | `JAVA_DIAG_HTTP_HOST` | `0.0.0.0` | 监听地址 |
 | `http.port` | `JAVA_DIAG_HTTP_PORT` | `8787` | 监听端口 |
-| `auth.token` | `JAVA_DIAG_AUTH_TOKEN` | 空 | Agent Bearer |
+| `auth.token` | `JAVA_DIAG_AUTH_TOKEN` | **必填** | Agent / MCP Bearer；空则启动失败 |
 | `heartbeat.ttl.seconds` | `JAVA_DIAG_HEARTBEAT_TTL_SECONDS` | `90` | 探针心跳 TTL（≥5） |
 | `instance.id` | `JAVA_DIAG_INSTANCE_ID` | `gateway-{pid}` | Gateway 自身 envelope |
 | `audit.path` | `JAVA_DIAG_GATEWAY_AUDIT_PATH` | `./logs/java-diag-gateway-audit.log` | 代理审计 JSONL |
-| `register.token` | `JAVA_DIAG_REGISTRY_REGISTER_TOKEN` | 空 | Registry API 鉴权 |
+| `register.token` | `JAVA_DIAG_REGISTRY_REGISTER_TOKEN` | **必填** | `/registry/*` Bearer；空则启动失败 |
 | `dump.cooldown.ms` | `JAVA_DIAG_DUMP_COOLDOWN_MS` | `10000` | 代理侧 dump 冷却 |
 | `admin.user` | `JAVA_DIAG_ADMIN_USER` | `admin` | 控制台用户名 |
 | `admin.password` | `JAVA_DIAG_ADMIN_PASSWORD` | `java-diag`（示例请改为强密码） | 控制台密码 |

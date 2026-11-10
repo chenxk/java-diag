@@ -157,7 +157,7 @@ java-diag/
 
 - Registry **内嵌在 Gateway**，实现类：`InMemoryRegistry`
 - HTTP 控制面：`RegistryServlet` → `/registry/register` | `/heartbeat` | `/deregister` | `/instances`
-- 可选 `register.token`（`JAVA_DIAG_REGISTRY_REGISTER_TOKEN`）；默认信任内网
+- 必填 `register.token`（`JAVA_DIAG_REGISTRY_REGISTER_TOKEN`）；空则启动失败 / 写接口 401
 - 心跳 TTL 可配（默认 90s）；超时标记不健康 / 不再路由
 - 注册发现是 Gateway 的一部分，**不**引入外部注册中心或独立 Registry 进程
 
@@ -263,8 +263,8 @@ java-diag/
 
 | 通道 | 机制 |
 |------|------|
-| Agent → Gateway / 探针 MCP | Bearer（`auth.token`）；未配置时启动 WARNING |
-| 探针 → Gateway `/registry/*` | 可选 `register.token`；默认信任内网 |
+| Agent → Gateway / 探针 MCP | Bearer（`auth.token`）；必填，空则启动失败 |
+| 探针 → Gateway `/registry/*` | Bearer（`register.token`）；必填，空则启动失败；未配置时写接口 401 |
 | Admin `/admin/` | 独立用户名密码（session），与 Agent token 分离 |
 | 探针 `--stdio` | 默认信任本地进程 |
 

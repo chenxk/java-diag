@@ -17,9 +17,15 @@ class DiagConfigPropertiesTest {
     @TempDir
     Path tempDir;
 
+    private static Map<String, String> requiredTokens() {
+        return Map.of(
+                DiagConfig.ENV_AUTH_TOKEN, "test-auth",
+                DiagConfig.ENV_REGISTRY_REGISTER_TOKEN, "test-reg");
+    }
+
     @Test
     void defaultsWithoutConfigFile() {
-        DiagConfig config = DiagConfig.load(Map.of(), List.of());
+        DiagConfig config = DiagConfig.load(requiredTokens(), List.of());
         assertEquals(8765, config.httpPort());
         assertEquals(DiagConfig.Transport.HTTP, config.transport());
     }
@@ -33,28 +39,31 @@ class DiagConfigPropertiesTest {
                         http.port=9901
                         transport=stdio
                         auth.token=file-secret
+                        register.token=file-reg
                         """);
         DiagConfig config = DiagConfig.load(Map.of(), List.of("--config", file.toString()));
         assertEquals(9901, config.httpPort());
         assertEquals(DiagConfig.Transport.STDIO, config.transport());
         assertEquals("file-secret", config.authToken().orElseThrow());
+        assertEquals("file-reg", config.registryRegisterToken().orElseThrow());
     }
 
     @Test
     void envOverridesProperties() throws Exception {
         Path file = tempDir.resolve("probe.properties");
-        Files.writeString(file, "http.port=9901\nauth.token=file-secret\n");
+        Files.writeString(file, "http.port=9901\nauth.token=file-secret\nregister.token=file-reg\n");
         DiagConfig config = DiagConfig.load(
                 Map.of(DiagConfig.ENV_HTTP_PORT, "8800", DiagConfig.ENV_AUTH_TOKEN, "env-secret"),
                 List.of("--config", file.toString()));
         assertEquals(8800, config.httpPort());
         assertEquals("env-secret", config.authToken().orElseThrow());
+        assertEquals("file-reg", config.registryRegisterToken().orElseThrow());
     }
 
     @Test
     void cliOverridesPropertiesAndEnv() throws Exception {
         Path file = tempDir.resolve("probe.properties");
-        Files.writeString(file, "http.port=9901\n");
+        Files.writeString(file, "http.port=9901\nauth.token=file-auth\nregister.token=file-reg\n");
         DiagConfig config = DiagConfig.load(
                 Map.of(DiagConfig.ENV_HTTP_PORT, "8800"),
                 List.of("--config", file.toString(), "--port", "7700"));
@@ -62,18 +71,28 @@ class DiagConfigPropertiesTest {
     }
 
     @Test
+    void rejectsMissingAuthTokenInProperties() throws Exception {
+        Path file = tempDir.resolve("probe.properties");
+        Files.writeString(file, "http.port=9901\nregister.token=file-reg\n");
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> DiagConfig.load(Map.of(), List.of("--config", file.toString())));
+        assertTrue(ex.getMessage().contains("auth.token"));
+    }
+
+    @Test
     void explicitConfigMissingFails() {
         Path missing = tempDir.resolve("no-such.properties");
         IllegalArgumentException ex = assertThrows(
                 IllegalArgumentException.class,
-                () -> DiagConfig.load(Map.of(), List.of("--config", missing.toString())));
+                () -> DiagConfig.load(requiredTokens(), List.of("--config", missing.toString())));
         assertTrue(ex.getMessage().contains("Config file not found"));
     }
 
     @Test
     void fromEnvironmentAcceptsFileSettingsDirectly() {
         DiagConfig config = DiagConfig.fromEnvironment(
-                Map.of(),
+                requiredTokens(),
                 List.of(),
                 Map.of(DiagConfig.PROP_REGISTER_URL, "http://gateway:8787"));
         assertEquals("http://gateway:8787", config.registerUrl().orElseThrow());
@@ -82,7 +101,7 @@ class DiagConfigPropertiesTest {
     @Test
     void dumpTimeoutFromPropertiesFile() throws Exception {
         Path file = tempDir.resolve("probe.properties");
-        Files.writeString(file, "dump.timeout.ms=45000\n");
+        Files.writeString(file, "dump.timeout.ms=45000\nauth.token=file-auth\nregister.token=file-reg\n");
         DiagConfig config = DiagConfig.load(Map.of(), List.of("--config", file.toString()));
         assertEquals(45_000L, config.dumpTimeoutMs());
     }
@@ -90,9 +109,13 @@ class DiagConfigPropertiesTest {
     @Test
     void legacyEnvKeyInPropertiesFile() throws Exception {
         Path file = tempDir.resolve("probe.properties");
-        Files.writeString(file, "JAVA_DIAG_HTTP_PORT=9910\n");
+        Files.writeString(
+                file,
+                "JAVA_DIAG_HTTP_PORT=9910\nJAVA_DIAG_AUTH_TOKEN=legacy-auth\nJAVA_DIAG_REGISTRY_REGISTER_TOKEN=legacy-reg\n");
         DiagConfig config = DiagConfig.load(Map.of(), List.of("--config", file.toString()));
         assertEquals(9910, config.httpPort());
+        assertEquals("legacy-auth", config.authToken().orElseThrow());
+        assertEquals("legacy-reg", config.registryRegisterToken().orElseThrow());
     }
 
     @Test

@@ -77,10 +77,10 @@ public final class GatewayHttpBootstrap {
         context.setSessionHandler(new SessionHandler());
         jetty.setHandler(context);
 
-        config.authToken().ifPresent(token -> context.addFilter(
-                new FilterHolder(new AgentAuthFilter(token)),
+        context.addFilter(
+                new FilterHolder(new AgentAuthFilter(config.authToken().orElseThrow())),
                 "/*",
-                EnumSet.of(DispatcherType.REQUEST)));
+                EnumSet.of(DispatcherType.REQUEST));
 
         ServletHolder sseHolder = new ServletHolder(sseTransport);
         sseHolder.setAsyncSupported(true);
@@ -112,9 +112,7 @@ public final class GatewayHttpBootstrap {
         System.err.println("  Registry:      /registry/register|heartbeat|deregister|instances");
         System.err.println("  Admin UI:      /admin/  (default user " + config.adminUser() + ")");
         System.err.println("  tools:         " + String.join(", ", tools.toolNames()));
-        if (config.authToken().isEmpty()) {
-            System.err.println("  WARNING: agent auth token not set (--token / JAVA_DIAG_AUTH_TOKEN)");
-        }
+        System.err.println("  auth:          agent + registry tokens required");
     }
 
     public void await() throws InterruptedException {

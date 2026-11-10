@@ -6,6 +6,7 @@ import com.javadiag.mcp.platform.JsonCodec;
 import com.javadiag.mcp.tools.ToolSupport;
 import org.junit.jupiter.api.Test;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -17,7 +18,10 @@ class LiveDiscoverySmokeTest {
 
     @Test
     void toolSupportDiscoveryIncludesReportableJvm() {
-        DiagConfig config = DiagConfig.load(System.getenv(), List.of());
+        Map<String, String> env = new HashMap<>(System.getenv());
+        env.putIfAbsent(DiagConfig.ENV_AUTH_TOKEN, "test-auth");
+        env.putIfAbsent(DiagConfig.ENV_REGISTRY_REGISTER_TOKEN, "test-reg");
+        DiagConfig config = DiagConfig.load(env, List.of());
         ToolSupport support = ToolSupport.create(config, JsonCodec.createDefault());
         List<JavaProcessInfo> processes = support.processService().listProcesses(null, null);
         assertFalse(processes.isEmpty(), "expected jps-backed discovery on this host");

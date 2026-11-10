@@ -11,6 +11,7 @@ import java.util.Properties;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -70,8 +71,19 @@ class BundledPropertiesExampleTest {
     void bundledExampleDefaultsMatchBuiltinDefaults() throws Exception {
         Map<String, String> fromExample = loadBundledExample().entrySet().stream()
                 .collect(Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue().toString()));
+        assertFalse(
+                fromExample.get(DiagConfig.PROP_AUTH_TOKEN).isBlank(), "auth.token must be non-empty in example");
+        assertFalse(
+                fromExample.get(DiagConfig.PROP_REGISTER_TOKEN).isBlank(),
+                "register.token must be non-empty in example");
+
         DiagConfig fromFile = DiagConfig.fromEnvironment(Map.of(), List.of(), fromExample);
-        DiagConfig builtin = DiagConfig.fromEnvironment(Map.of(), List.of(), Map.of());
+        DiagConfig builtin = DiagConfig.fromEnvironment(
+                Map.of(
+                        DiagConfig.ENV_AUTH_TOKEN, "test-auth",
+                        DiagConfig.ENV_REGISTRY_REGISTER_TOKEN, "test-reg"),
+                List.of(),
+                Map.of());
 
         assertEquals(builtin.transport(), fromFile.transport());
         assertEquals(builtin.httpHost(), fromFile.httpHost());

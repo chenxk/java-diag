@@ -41,6 +41,8 @@ class LogToolsTest {
         Files.writeString(file, sb.toString());
 
         Map<String, String> env = Map.of(
+                DiagConfig.ENV_AUTH_TOKEN, "test-auth",
+                DiagConfig.ENV_REGISTRY_REGISTER_TOKEN, "test-reg",
                 DiagConfig.ENV_ALLOWED_LOG_DIRS, logs.toString(),
                 DiagConfig.ENV_MAX_OUTPUT_BYTES, "2048",
                 DiagConfig.ENV_AUDIT_PATH, tempDir.resolve("audit.log").toString());
@@ -89,6 +91,8 @@ class LogToolsTest {
                 """);
 
         Map<String, String> env = Map.of(
+                DiagConfig.ENV_AUTH_TOKEN, "test-auth",
+                DiagConfig.ENV_REGISTRY_REGISTER_TOKEN, "test-reg",
                 DiagConfig.ENV_ALLOWED_LOG_DIRS, logs.toString(),
                 DiagConfig.ENV_AUDIT_PATH, tempDir.resolve("audit.log").toString());
         DiagConfig config = DiagConfig.fromEnvironment(env);

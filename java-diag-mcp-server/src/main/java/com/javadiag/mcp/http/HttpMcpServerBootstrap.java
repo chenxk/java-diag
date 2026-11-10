@@ -70,10 +70,10 @@ public final class HttpMcpServerBootstrap {
         context.setContextPath("/");
         jetty.setHandler(context);
 
-        config.authToken().ifPresent(token -> context.addFilter(
-                new FilterHolder(new BearerAuthFilter(token)),
+        context.addFilter(
+                new FilterHolder(new BearerAuthFilter(config.authToken().orElseThrow())),
                 "/*",
-                EnumSet.of(DispatcherType.REQUEST)));
+                EnumSet.of(DispatcherType.REQUEST));
 
         ServletHolder sseHolder = new ServletHolder(sseTransport);
         sseHolder.setAsyncSupported(true);
@@ -96,9 +96,7 @@ public final class HttpMcpServerBootstrap {
         System.err.println("  Streamable: http://<host>:" + config.httpPort() + STREAMABLE_ENDPOINT);
         System.err.println("  Health:     http://<host>:" + config.httpPort() + "/health");
         System.err.println("  tools:      " + String.join(", ", registrar.toolNames()));
-        if (config.authToken().isEmpty()) {
-            System.err.println("  WARNING: JAVA_DIAG_AUTH_TOKEN is not set; remote MCP is unauthenticated");
-        }
+        System.err.println("  auth:       auth.token required (Bearer)");
     }
 
     public void await() throws InterruptedException {

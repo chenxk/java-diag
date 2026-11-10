@@ -290,6 +290,10 @@ public final class DiagConfig {
             throw new IllegalArgumentException("http port out of range: " + httpPort);
         }
 
+        authToken = requireConfiguredToken(authToken, PROP_AUTH_TOKEN, ENV_AUTH_TOKEN, "--token / --auth-token");
+        registryRegisterToken = requireConfiguredToken(
+                registryRegisterToken, PROP_REGISTER_TOKEN, ENV_REGISTRY_REGISTER_TOKEN, "--register-token");
+
         String serviceName = serviceNameOpt.orElseGet(DiagConfig::primaryIpAddress);
         // Registry identity = advertise host:port (mcpBaseUrl); no separate instance-id env/CLI.
         String instanceId = instanceIdFromAdvertise(advertiseUrl, httpHost, httpPort);
@@ -316,6 +320,16 @@ public final class DiagConfig {
                 dumpCooldownMs,
                 registryRegisterToken,
                 appNameMapper);
+    }
+
+    /** MCP and Registry tokens are mandatory — empty means unauthenticated access. */
+    static Optional<String> requireConfiguredToken(
+            Optional<String> value, String propKey, String envKey, String cliHint) {
+        if (value.isEmpty() || value.get().isBlank()) {
+            throw new IllegalArgumentException(
+                    propKey + " is required (also " + envKey + " or " + cliHint + "); empty tokens are not allowed");
+        }
+        return value;
     }
 
     private static String requireValue(List<String> args, int index, String flag) {

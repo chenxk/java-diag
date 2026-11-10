@@ -20,16 +20,17 @@ class GatewayConfigPropertiesTest {
     @Test
     void loadsPortFromProperties() throws Exception {
         Path file = tempDir.resolve("gw.properties");
-        Files.writeString(file, "http.port=8799\nauth.token=from-file\n");
+        Files.writeString(file, "http.port=8799\nauth.token=from-file\nregister.token=reg-file\n");
         GatewayConfig config = GatewayConfig.load(Map.of(), List.of("--config", file.toString()));
         assertEquals(8799, config.httpPort());
         assertEquals("from-file", config.authToken().orElseThrow());
+        assertEquals("reg-file", config.registryRegisterToken().orElseThrow());
     }
 
     @Test
     void envOverridesPropertiesCliWins() throws Exception {
         Path file = tempDir.resolve("gw.properties");
-        Files.writeString(file, "http.port=8799\n");
+        Files.writeString(file, "http.port=8799\nauth.token=file-auth\nregister.token=file-reg\n");
         GatewayConfig config = GatewayConfig.load(
                 Map.of(GatewayConfig.ENV_HTTP_PORT, "8780"),
                 List.of("--config", file.toString(), "--port", "8781"));
@@ -39,7 +40,7 @@ class GatewayConfigPropertiesTest {
     @Test
     void envOverridesPropertiesWhenNoCli() throws Exception {
         Path file = tempDir.resolve("gw.properties");
-        Files.writeString(file, "http.port=8799\nregister.token=file-reg\n");
+        Files.writeString(file, "http.port=8799\nauth.token=file-auth\nregister.token=file-reg\n");
         GatewayConfig config = GatewayConfig.load(
                 Map.of(
                         GatewayConfig.ENV_HTTP_PORT, "8780",
@@ -47,6 +48,16 @@ class GatewayConfigPropertiesTest {
                 List.of("--config", file.toString()));
         assertEquals(8780, config.httpPort());
         assertEquals("env-reg", config.registryRegisterToken().orElseThrow());
+    }
+
+    @Test
+    void missingAuthTokenInFileFails() throws Exception {
+        Path file = tempDir.resolve("gw.properties");
+        Files.writeString(file, "http.port=8799\nregister.token=reg-only\n");
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> GatewayConfig.load(Map.of(), List.of("--config", file.toString())));
+        assertTrue(ex.getMessage().contains("auth.token"));
     }
 
     @Test
