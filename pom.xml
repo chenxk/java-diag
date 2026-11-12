@@ -12,8 +12,8 @@
   <description>Read-only Java diagnostics MCP — probe + gateway</description>
 
   <modules>
-    <module>java-diag-mcp-server</module>
     <module>java-diag-gateway</module>
+    <module>java-diag-probe</module>
   </modules>
 
   <properties>

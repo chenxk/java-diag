@@ -10,8 +10,8 @@
     <version>0.1.0-SNAPSHOT</version>
   </parent>
 
-  <artifactId>java-diag-mcp-server</artifactId>
-  <name>java-diag-mcp-server</name>
+  <artifactId>java-diag-probe</artifactId>
+  <name>java-diag-probe</name>
   <description>Single-machine Java diagnostics MCP probe (HTTP + stdio + optional registry heartbeat)</description>
 
   <dependencies>
