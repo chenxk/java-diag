@@ -21,6 +21,15 @@ class AgentAuthFilterTest {
     }
 
     @Test
+    void extraExemptPrefixesAreSegmentAware() {
+        var prefixes = java.util.List.of("/api");
+        assertTrue(AgentAuthFilter.isExemptPath("/api", prefixes));
+        assertTrue(AgentAuthFilter.isExemptPath("/api/v1/health", prefixes));
+        assertFalse(AgentAuthFilter.isExemptPath("/apiv1", prefixes));
+        assertFalse(AgentAuthFilter.isExemptPath("/sse", prefixes));
+    }
+
+    @Test
     void normalizeCollapsesDotDotTraversal() {
         assertTrue(AgentAuthFilter.isExemptPath(
                 AgentAuthFilter.normalizePath("/health")));

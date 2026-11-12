@@ -12,16 +12,26 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.List;
 
 /**
- * Protects Agent-facing MCP endpoints. Registry and health are excluded.
+ * Protects Agent-facing MCP endpoints. Registry, health, and admin are excluded by default;
+ * callers may add extra path prefixes (e.g. {@code /api} for gateway-pro).
  */
 public final class AgentAuthFilter implements Filter {
 
     private final String expectedToken;
+    private final List<String> extraExemptPrefixes;
 
     public AgentAuthFilter(String expectedToken) {
+        this(expectedToken, List.of());
+    }
+
+    public AgentAuthFilter(String expectedToken, List<String> extraExemptPrefixes) {
         this.expectedToken = expectedToken;
+        this.extraExemptPrefixes = extraExemptPrefixes == null
+                ? List.of()
+                : List.copyOf(extraExemptPrefixes);
     }
 
     @Override
@@ -30,7 +40,7 @@ public final class AgentAuthFilter implements Filter {
         HttpServletRequest req = (HttpServletRequest) request;
         HttpServletResponse resp = (HttpServletResponse) response;
         String path = normalizePath(req.getRequestURI());
-        if (isExemptPath(path)) {
+        if (isExemptPath(path, extraExemptPrefixes)) {
             chain.doFilter(request, response);
             return;
         }
@@ -53,14 +63,33 @@ public final class AgentAuthFilter implements Filter {
         chain.doFilter(request, response);
     }
 
-    /** Visible for tests: health/root/registry only (exact segment, after normalize). */
+    /** Visible for tests: health/root/registry/admin (+ optional prefixes). */
     static boolean isExemptPath(String path) {
-        return "/health".equals(path)
+        return isExemptPath(path, List.of());
+    }
+
+    static boolean isExemptPath(String path, List<String> extraExemptPrefixes) {
+        if ("/health".equals(path)
                 || "/".equals(path)
                 || "/registry".equals(path)
                 || path.startsWith("/registry/")
                 || "/admin".equals(path)
-                || path.startsWith("/admin/");
+                || path.startsWith("/admin/")) {
+            return true;
+        }
+        if (extraExemptPrefixes == null) {
+            return false;
+        }
+        for (String prefix : extraExemptPrefixes) {
+            if (prefix == null || prefix.isBlank()) {
+                continue;
+            }
+            String normalized = prefix.endsWith("/") ? prefix.substring(0, prefix.length() - 1) : prefix;
+            if (path.equals(normalized) || path.startsWith(normalized + "/")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static String normalizePath(String requestUri) {

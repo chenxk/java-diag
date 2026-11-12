@@ -26,7 +26,11 @@ import org.eclipse.jetty.server.ServerConnector;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Consumer;
 
 public final class GatewayHttpBootstrap {
 
@@ -34,6 +38,8 @@ public final class GatewayHttpBootstrap {
     private final InMemoryRegistry registry;
     private final JsonSupport json;
     private final GatewayToolRegistrar tools;
+    private final List<Consumer<ServletContextHandler>> extensions = new ArrayList<>();
+    private List<String> extraAuthExemptPrefixes = List.of();
 
     private Server jetty;
     private McpSyncServer sseMcp;
@@ -48,6 +54,21 @@ public final class GatewayHttpBootstrap {
         this.registry = registry;
         this.json = json;
         this.tools = tools;
+    }
+
+    /** Mount extra servlets/filters after built-in MCP/registry/admin routes. */
+    public GatewayHttpBootstrap addExtension(Consumer<ServletContextHandler> extension) {
+        extensions.add(Objects.requireNonNull(extension, "extension"));
+        return this;
+    }
+
+    /**
+     * Path prefixes skipped by {@link AgentAuthFilter} in addition to health/registry/admin
+     * (e.g. {@code /api} for java-diag-gateway-pro).
+     */
+    public GatewayHttpBootstrap authExemptPrefixes(List<String> prefixes) {
+        this.extraAuthExemptPrefixes = prefixes == null ? List.of() : List.copyOf(prefixes);
+        return this;
     }
 
     public void start() throws Exception {
@@ -78,7 +99,8 @@ public final class GatewayHttpBootstrap {
         jetty.setHandler(context);
 
         context.addFilter(
-                new FilterHolder(new AgentAuthFilter(config.authToken().orElseThrow())),
+                new FilterHolder(new AgentAuthFilter(
+                        config.authToken().orElseThrow(), extraAuthExemptPrefixes)),
                 "/*",
                 EnumSet.of(DispatcherType.REQUEST));
 
@@ -104,6 +126,10 @@ public final class GatewayHttpBootstrap {
 
         context.addServlet(new ServletHolder(new HealthServlet()), "/health");
         context.addServlet(new ServletHolder(new RootServlet()), "/");
+
+        for (Consumer<ServletContextHandler> extension : extensions) {
+            extension.accept(context);
+        }
 
         jetty.start();
         if (config.usesWeakAdminPassword()) {
