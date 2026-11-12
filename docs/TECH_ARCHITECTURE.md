@@ -381,7 +381,7 @@ Probe 启动 → RegistryHeartbeatClient
 **不是** Spring `application.yml`。加载顺序：
 
 1. 代码内置默认  
-2. properties 文件（无 `--config`：classpath 同名资源，再 cwd 文件，再向上最多 6 层的 `*.properties.local`；`--config` 替换该文件层）  
+2. properties 文件（无 `--config`：classpath 同名资源，再 cwd 文件；探针另可叠 `*.properties.local` 向上最多 6 层；`--config` 替换该文件层）  
 3. 环境变量 `JAVA_DIAG_*`  
 4. CLI（最高）
 

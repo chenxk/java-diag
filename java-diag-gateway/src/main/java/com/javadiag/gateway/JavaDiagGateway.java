@@ -38,8 +38,7 @@ public final class JavaDiagGateway {
 
                 Configuration load order (low to high):
                   built-in defaults; file layer (no --config: classpath /java-diag-gateway.properties,
-                  then ./java-diag-gateway.properties, then java-diag-gateway.properties.local
-                  from cwd up to 6 parents, nearer wins); --config replaces the file layer;
+                  then ./java-diag-gateway.properties); --config replaces the file layer;
                   environment variables; CLI flags (highest).
 
                 Example file: java-diag-gateway.properties.example — see docs/CONFIGURATION.md

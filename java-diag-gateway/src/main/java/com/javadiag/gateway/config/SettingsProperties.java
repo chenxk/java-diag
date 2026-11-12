@@ -6,18 +6,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 
 /**
  * Loads {@code .properties} settings and resolves values: file &lt; env (env wins over file).
  *
  * <p>With no {@code --config} the file order (low to high) is classpath
- * {@code /java-diag-gateway.properties}, then {@code ./java-diag-gateway.properties}, then
- * {@code java-diag-gateway.properties.local} walked up from the working directory (nearer wins).
+ * {@code /java-diag-gateway.properties}, then {@code ./java-diag-gateway.properties}.
  * An explicit {@code --config} replaces that file layer.
  */
 public final class SettingsProperties {
@@ -26,8 +23,6 @@ public final class SettingsProperties {
 
     /** Classpath resource name (no leading slash). */
     public static final String CLASSPATH_RESOURCE = DEFAULT_FILENAME;
-
-    private static final int MAX_PARENT_HOPS = 6;
 
     private SettingsProperties() {}
 
@@ -79,9 +74,6 @@ public final class SettingsProperties {
             if (Files.isRegularFile(cwdFile)) {
                 fileSettings.putAll(readPropertiesFile(cwdFile));
             }
-            for (Path local : localOverlays(cwd, defaultFilename + ".local")) {
-                fileSettings.putAll(readPropertiesFile(local));
-            }
         }
         return new ConfigLayer(Map.copyOf(fileSettings), List.copyOf(args));
     }
@@ -104,28 +96,6 @@ public final class SettingsProperties {
                     "Failed to read classpath config: /" + resourceName + " — " + ex.getMessage(), ex);
         }
         return toMap(raw);
-    }
-
-    /** Nearest file wins. Looks at cwd and up to {@link #MAX_PARENT_HOPS} directories including cwd. */
-    private static List<Path> localOverlays(Path cwd, String localFilename) {
-        List<Path> chain = new ArrayList<>();
-        Path dir = cwd.toAbsolutePath().normalize();
-        for (int i = 0; i < MAX_PARENT_HOPS && dir != null; i++) {
-            chain.add(dir);
-            Path parent = dir.getParent();
-            if (parent == null || parent.equals(dir)) {
-                break;
-            }
-            dir = parent;
-        }
-        Set<Path> files = new LinkedHashSet<>();
-        for (int i = chain.size() - 1; i >= 0; i--) {
-            Path candidate = chain.get(i).resolve(localFilename).toAbsolutePath().normalize();
-            if (Files.isRegularFile(candidate)) {
-                files.add(candidate);
-            }
-        }
-        return List.copyOf(files);
     }
 
     private static Map<String, String> toMap(Properties raw) {

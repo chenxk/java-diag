@@ -43,32 +43,6 @@ class GatewayConfigClasspathTest {
     }
 
     @Test
-    void propertiesLocalNearCwdOverridesClasspath() throws Exception {
-        Path moduleDir = Files.createDirectories(tempDir.resolve("java-diag-gateway"));
-        Files.writeString(tempDir.resolve("java-diag-gateway.properties.local"), "http.port=8810\n");
-        GatewayConfig config = load(Map.of(), List.of(), moduleDir, """
-                http.port=8791
-                auth.token=classpath-auth
-                register.token=classpath-reg
-                """);
-        assertEquals(8810, config.httpPort());
-        assertEquals("classpath-auth", config.authToken().orElseThrow());
-    }
-
-    @Test
-    void nearerLocalOverridesParent() throws Exception {
-        Path child = Files.createDirectories(tempDir.resolve("child"));
-        Files.writeString(tempDir.resolve("java-diag-gateway.properties.local"), "http.port=8111\n");
-        Files.writeString(child.resolve("java-diag-gateway.properties.local"), "http.port=8222\n");
-        GatewayConfig config = load(Map.of(), List.of(), child, """
-                http.port=8791
-                auth.token=classpath-auth
-                register.token=classpath-reg
-                """);
-        assertEquals(8222, config.httpPort());
-    }
-
-    @Test
     void envOverridesFileAndCliWins() throws Exception {
         String body = """
                 http.port=8791

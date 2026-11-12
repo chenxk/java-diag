@@ -16,8 +16,9 @@
 
 | 场景 | 行为 |
 |------|------|
-| 未指定 `--config` | 文件层从低到高：classpath `/java-diag-probe.properties` 或 `/java-diag-gateway.properties`，再工作目录 `./` 同名文件（有则覆盖），再从工作目录向上最多 6 层的 `*.properties.local`（更近优先） |
-| `--config /path/to/file` | 替换整个文件层（不再叠 classpath / cwd / local）；文件必须存在，否则启动失败 |
+| 未指定 `--config`（网关） | 文件层从低到高：classpath `/java-diag-gateway.properties`，再工作目录 `./java-diag-gateway.properties`（有则覆盖） |
+| 未指定 `--config`（探针） | 文件层从低到高：classpath `/java-diag-probe.properties`，再工作目录 `./java-diag-probe.properties`（有则覆盖），再从工作目录向上最多 6 层的 `*.properties.local`（更近优先） |
+| `--config /path/to/file` | 替换整个文件层；文件必须存在，否则启动失败 |
 | 显式路径缺失 | 报错（copy from `*.properties.example`） |
 
 Properties 内可使用 **点分键**（推荐）或 legacy **`JAVA_DIAG_*` env 同名键**。
