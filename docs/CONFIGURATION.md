@@ -160,7 +160,7 @@ java -jar java-diag-gateway.jar --config ./gw.properties --token agent-override
 |------|-----|
 | Probe 配置 | `java-diag-probe/.../config/DiagConfig.java` |
 | Probe properties 加载 | `.../config/SettingsProperties.java` |
-| Probe 入口 | `.../JavaDiagMcpServer.java` |
+| Probe 入口 | `.../JavaDiagProbe.java` |
 | Gateway 配置 | `java-diag-gateway/.../config/GatewayConfig.java` |
 | Gateway properties 加载 | `.../config/SettingsProperties.java` |
 | Gateway 入口 | `.../JavaDiagGateway.java` |
