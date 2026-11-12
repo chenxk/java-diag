@@ -105,8 +105,8 @@ Maven 父工程 + **两个**可运行模块（无独立 `common` / `probe-core` 
 java-diag/
 ├── pom.xml                      # 父 POM，Java 17，依赖管理
 ├── java-diag-probe/        # 探针
-│   └── com.javadiag.mcp
-│       ├── JavaDiagMcpServer    # 入口（HTTP 默认 / --stdio）
+│   └── com.javadiag.probe
+│       ├── JavaDiagProbe    # 入口（HTTP 默认 / --stdio）
 │       ├── config/              # DiagConfig、properties 加载
 │       ├── mcp/ToolRegistrar    # 注册 diag.* 工具
 │       ├── tools/               # Meta / Log / Jvm
