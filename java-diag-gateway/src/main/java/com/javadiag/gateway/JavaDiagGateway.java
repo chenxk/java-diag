@@ -36,11 +36,11 @@ public final class JavaDiagGateway {
         System.out.println("""
                 java-diag-gateway — cluster MCP entry + built-in probe registry
 
-                Configuration load order:
-                  1) built-in defaults
-                  2) properties file (--config <file>, else ./java-diag-gateway.properties if present)
-                  3) environment variables (optional override)
-                  4) CLI flags (highest priority)
+                Configuration load order (low to high):
+                  built-in defaults; file layer (no --config: classpath /java-diag-gateway.properties,
+                  then ./java-diag-gateway.properties, then java-diag-gateway.properties.local
+                  from cwd up to 6 parents, nearer wins); --config replaces the file layer;
+                  environment variables; CLI flags (highest).
 
                 Example file: java-diag-gateway.properties.example — see docs/CONFIGURATION.md
 

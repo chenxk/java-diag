@@ -103,11 +103,11 @@ public final class JavaDiagProbe {
                 Default transport: HTTP (Agent or Gateway connects via IP:port)
                 Local IDE fallback: --stdio
 
-                Configuration load order:
-                  1) built-in defaults
-                  2) properties file (--config <file>, else ./java-diag-probe.properties if present)
-                  3) environment variables (optional override)
-                  4) CLI flags below (highest priority)
+                Configuration load order (low to high):
+                  built-in defaults; file layer (no --config: classpath /java-diag-probe.properties,
+                  then ./java-diag-probe.properties, then java-diag-probe.properties.local
+                  from cwd up to 6 parents, nearer wins); --config replaces the file layer;
+                  environment variables; CLI flags below (highest).
 
                 Example file (all keys): classpath java-diag-probe.properties.example
                 Full reference: docs/CONFIGURATION.md

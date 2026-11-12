@@ -6,16 +6,28 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 /**
  * Loads {@code .properties} settings and resolves values: file &lt; env (env wins over file).
+ *
+ * <p>With no {@code --config} the file order (low to high) is classpath
+ * {@code /java-diag-probe.properties}, then {@code ./java-diag-probe.properties}, then
+ * {@code java-diag-probe.properties.local} walked up from the working directory (nearer wins).
+ * An explicit {@code --config} replaces that file layer.
  */
 public final class SettingsProperties {
 
     public static final String DEFAULT_FILENAME = "java-diag-probe.properties";
+
+    /** Classpath resource name (no leading slash). */
+    public static final String CLASSPATH_RESOURCE = DEFAULT_FILENAME;
+
+    private static final int MAX_PARENT_HOPS = 6;
 
     private SettingsProperties() {}
 
@@ -26,6 +38,19 @@ public final class SettingsProperties {
     }
 
     public static ConfigLayer loadConfigLayer(List<String> cliArgs, String defaultFilename) {
+        ClassLoader loader = SettingsProperties.class.getClassLoader();
+        if (loader == null) {
+            loader = ClassLoader.getSystemClassLoader();
+        }
+        return loadConfigLayer(cliArgs, defaultFilename, Path.of("").toAbsolutePath(), loader);
+    }
+
+    static ConfigLayer loadConfigLayer(List<String> cliArgs, Path cwd, ClassLoader loader) {
+        return loadConfigLayer(cliArgs, DEFAULT_FILENAME, cwd, loader);
+    }
+
+    static ConfigLayer loadConfigLayer(
+            List<String> cliArgs, String defaultFilename, Path cwd, ClassLoader loader) {
         List<String> args = new ArrayList<>(cliArgs);
         Path explicit = null;
         for (int i = 0; i < args.size(); i++) {
@@ -48,12 +73,70 @@ public final class SettingsProperties {
             }
             fileSettings.putAll(readPropertiesFile(explicit));
         } else {
-            Path defaultPath = Path.of(defaultFilename).toAbsolutePath().normalize();
-            if (Files.isRegularFile(defaultPath)) {
-                fileSettings.putAll(readPropertiesFile(defaultPath));
+            String resource = classpathResourceName(defaultFilename);
+            fileSettings.putAll(readClasspath(loader, resource));
+            Path cwdFile = cwd.toAbsolutePath().normalize().resolve(defaultFilename);
+            if (Files.isRegularFile(cwdFile)) {
+                fileSettings.putAll(readPropertiesFile(cwdFile));
+            }
+            for (Path local : localOverlays(cwd, defaultFilename + ".local")) {
+                fileSettings.putAll(readPropertiesFile(local));
             }
         }
         return new ConfigLayer(Map.copyOf(fileSettings), List.copyOf(args));
+    }
+
+    private static String classpathResourceName(String defaultFilename) {
+        Path name = Path.of(defaultFilename).getFileName();
+        return name == null ? defaultFilename : name.toString();
+    }
+
+    private static Map<String, String> readClasspath(ClassLoader loader, String resourceName) {
+        InputStream in = loader == null ? null : loader.getResourceAsStream(resourceName);
+        if (in == null) {
+            return Map.of();
+        }
+        Properties raw = new Properties();
+        try (InputStream stream = in) {
+            raw.load(stream);
+        } catch (IOException ex) {
+            throw new IllegalArgumentException(
+                    "Failed to read classpath config: /" + resourceName + " — " + ex.getMessage(), ex);
+        }
+        return toMap(raw);
+    }
+
+    /** Nearest file wins. Looks at cwd and up to {@link #MAX_PARENT_HOPS} directories including cwd. */
+    private static List<Path> localOverlays(Path cwd, String localFilename) {
+        List<Path> chain = new ArrayList<>();
+        Path dir = cwd.toAbsolutePath().normalize();
+        for (int i = 0; i < MAX_PARENT_HOPS && dir != null; i++) {
+            chain.add(dir);
+            Path parent = dir.getParent();
+            if (parent == null || parent.equals(dir)) {
+                break;
+            }
+            dir = parent;
+        }
+        Set<Path> files = new LinkedHashSet<>();
+        for (int i = chain.size() - 1; i >= 0; i--) {
+            Path candidate = chain.get(i).resolve(localFilename).toAbsolutePath().normalize();
+            if (Files.isRegularFile(candidate)) {
+                files.add(candidate);
+            }
+        }
+        return List.copyOf(files);
+    }
+
+    private static Map<String, String> toMap(Properties raw) {
+        Map<String, String> out = new LinkedHashMap<>();
+        for (String name : raw.stringPropertyNames()) {
+            String value = raw.getProperty(name);
+            if (value != null) {
+                out.put(name.trim(), value.trim());
+            }
+        }
+        return out;
     }
 
     public static Map<String, String> readPropertiesFile(Path path) {
@@ -63,14 +146,7 @@ public final class SettingsProperties {
         } catch (IOException ex) {
             throw new IllegalArgumentException("Failed to read config file: " + path + " — " + ex.getMessage(), ex);
         }
-        Map<String, String> out = new LinkedHashMap<>();
-        for (String name : raw.stringPropertyNames()) {
-            String value = raw.getProperty(name);
-            if (value != null) {
-                out.put(name.trim(), value.trim());
-            }
-        }
-        return out;
+        return toMap(raw);
     }
 
     /**
