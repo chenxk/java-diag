@@ -32,7 +32,10 @@ public final class GatewayConfig {
 
     private static final String DEFAULT_HOST = "0.0.0.0";
     public static final String DEFAULT_ADMIN_USER = "admin";
+    /** Local/dev fallback when admin.password is unset; not for shared/prod use. */
     public static final String DEFAULT_ADMIN_PASSWORD = "java-diag";
+    /** Placeholder used in bundled example / deploy templates. */
+    public static final String EXAMPLE_ADMIN_PASSWORD_PLACEHOLDER = "CHANGE_ME_ADMIN_PASSWORD";
     private static final int DEFAULT_PORT = 8787;
     private static final long DEFAULT_TTL_SECONDS = 90L;
     private static final long DEFAULT_DUMP_COOLDOWN_MS = 10_000L;
@@ -234,5 +237,23 @@ public final class GatewayConfig {
 
     public String adminPassword() {
         return adminPassword;
+    }
+
+    /**
+     * True when the password is blank, equals the built-in local default, or looks like a
+     * {@code CHANGE_ME*} placeholder from example/deploy templates.
+     */
+    public static boolean isWeakAdminPassword(String password) {
+        if (password == null || password.isBlank()) {
+            return true;
+        }
+        if (DEFAULT_ADMIN_PASSWORD.equals(password)) {
+            return true;
+        }
+        return password.regionMatches(true, 0, "CHANGE_ME", 0, "CHANGE_ME".length());
+    }
+
+    public boolean usesWeakAdminPassword() {
+        return isWeakAdminPassword(adminPassword);
     }
 }

@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -71,6 +72,18 @@ class GatewayConfigTest {
         GatewayConfig config = GatewayConfig.from(requiredTokens(), List.of());
         assertEquals(GatewayConfig.DEFAULT_ADMIN_USER, config.adminUser());
         assertEquals(GatewayConfig.DEFAULT_ADMIN_PASSWORD, config.adminPassword());
+        assertTrue(config.usesWeakAdminPassword());
+    }
+
+    @Test
+    void detectsWeakAdminPasswords() {
+        assertTrue(GatewayConfig.isWeakAdminPassword(null));
+        assertTrue(GatewayConfig.isWeakAdminPassword(""));
+        assertTrue(GatewayConfig.isWeakAdminPassword(GatewayConfig.DEFAULT_ADMIN_PASSWORD));
+        assertTrue(GatewayConfig.isWeakAdminPassword(GatewayConfig.EXAMPLE_ADMIN_PASSWORD_PLACEHOLDER));
+        assertTrue(GatewayConfig.isWeakAdminPassword("CHANGE_ME_OTHER"));
+        assertTrue(GatewayConfig.isWeakAdminPassword("change_me_lower"));
+        assertFalse(GatewayConfig.isWeakAdminPassword("s3cret-strong"));
     }
 
     @Test

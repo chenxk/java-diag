@@ -57,16 +57,16 @@ class JavaProcessServiceTest {
         // Classic shell launcher: -classpath <colon-list-ending-.jar> <MainClass>
         // Without skipping the classpath token, extractMain used to return the whole list
         // (endsWith .jar) and AppNameMapper then showed the last jar basename as app name.
-        String classpath = "/home/meouser/Meorientb2bHome/bin/"
-                + ":/home/meouser/Meorientb2bHome/bin/../libs/common.2/activation-1.1.jar"
-                + ":/home/meouser/Meorientb2bHome/bin/../libs/meorientb2b/meorientb2b-web-common-1.0.1-SNAPSHOT.jar";
+        String classpath = "/home/app/order-service/bin/"
+                + ":/home/app/order-service/bin/../libs/common.2/activation-1.1.jar"
+                + ":/home/app/order-service/bin/../libs/order/order-web-common-1.0.1-SNAPSHOT.jar";
         String cmdline = "/opt/jdk/bin/java"
-                + " -javaagent:/home/meouser/Meorientb2bHome/bin/agent/skywalking-agent.jar"
-                + " -Dskywalking.agent.service_name=com.meorient.b2b.launcher.rpc.MeorientB2bRpcServer"
+                + " -javaagent:/home/app/order-service/bin/agent/skywalking-agent.jar"
+                + " -Dskywalking.agent.service_name=com.example.order.OrderRpcServer"
                 + " -classpath " + classpath
-                + " com.meorient.b2b.launcher.rpc.MeorientB2bRpcServer";
+                + " com.example.order.OrderRpcServer";
         assertEquals(
-                "com.meorient.b2b.launcher.rpc.MeorientB2bRpcServer",
+                "com.example.order.OrderRpcServer",
                 JavaProcessService.extractMain(cmdline));
         assertEquals(
                 "com.example.Main",
@@ -116,7 +116,7 @@ class JavaProcessServiceTest {
         assertFalse(JavaProcessService.isJavaMainToken("run.sh"));
         // Classpath blob ending with .jar must not count as a jar main token.
         assertFalse(JavaProcessService.isJavaMainToken(
-                "/home/meouser/bin/:/home/meouser/libs/meorientb2b-web-common-1.0.1-SNAPSHOT.jar"));
+                "/home/app/bin/:/home/app/libs/order-web-common-1.0.1-SNAPSHOT.jar"));
         assertFalse(JavaProcessService.isJavaMainToken("a.jar;b.jar"));
     }
 
@@ -186,30 +186,30 @@ class JavaProcessServiceTest {
 
     @Test
     void enrichMainRepairsClasspathMistakenAsMain() {
-        String classpath = "/home/meouser/Meorientb2bHome/bin/"
-                + ":/home/meouser/Meorientb2bHome/libs/meorientb2b-web-common-1.0.1-SNAPSHOT.jar";
+        String classpath = "/home/app/order-service/bin/"
+                + ":/home/app/order-service/libs/order-web-common-1.0.1-SNAPSHOT.jar";
         String cmdline = "/opt/jdk/bin/java -classpath " + classpath
-                + " com.meorient.b2b.launcher.rpc.MeorientB2bRpcServer";
+                + " com.example.order.OrderRpcServer";
         // Simulates pre-fix /proc parse that stored the classpath blob as mainClass.
         JavaProcessInfo broken = new JavaProcessInfo(
-                11127L, classpath, classpath, "meouser", 1L, 1024L, cmdline);
+                11127L, classpath, classpath, "app", 1L, 1024L, cmdline);
         JavaProcessInfo fixed = JavaProcessService.enrichMainFromCommandLine(broken);
-        assertEquals("com.meorient.b2b.launcher.rpc.MeorientB2bRpcServer", fixed.mainClassOrJar());
-        assertEquals("MeorientB2bRpcServer", AppNameMapper.fallbackShortName(fixed.mainClassOrJar()));
+        assertEquals("com.example.order.OrderRpcServer", fixed.mainClassOrJar());
+        assertEquals("OrderRpcServer", AppNameMapper.fallbackShortName(fixed.mainClassOrJar()));
 
         // Even if cmdline repair were unavailable, merge must adopt jps FQCN over classpath blob.
         JavaProcessInfo fromJps = new JavaProcessInfo(
                 11127L,
-                "com.meorient.b2b.launcher.rpc.MeorientB2bRpcServer",
-                "com.meorient.b2b.launcher.rpc.MeorientB2bRpcServer",
+                "com.example.order.OrderRpcServer",
+                "com.example.order.OrderRpcServer",
                 null,
                 2L,
                 null,
-                "com.meorient.b2b.launcher.rpc.MeorientB2bRpcServer");
+                "com.example.order.OrderRpcServer");
         JavaProcessInfo merged =
                 JavaProcessService.mergeByPid(List.of(broken), List.of(fromJps)).get(0);
-        assertEquals("com.meorient.b2b.launcher.rpc.MeorientB2bRpcServer", merged.mainClassOrJar());
-        assertEquals("meouser", merged.user());
+        assertEquals("com.example.order.OrderRpcServer", merged.mainClassOrJar());
+        assertEquals("app", merged.user());
     }
 
     @Test

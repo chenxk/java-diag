@@ -113,7 +113,7 @@ Gateway **仅 HTTP**。
 | `register.token` | `JAVA_DIAG_REGISTRY_REGISTER_TOKEN` | **必填** | `/registry/*` Bearer；空则启动失败 |
 | `dump.cooldown.ms` | `JAVA_DIAG_DUMP_COOLDOWN_MS` | `10000` | 代理侧 dump 冷却 |
 | `admin.user` | `JAVA_DIAG_ADMIN_USER` | `admin` | 控制台用户名 |
-| `admin.password` | `JAVA_DIAG_ADMIN_PASSWORD` | `java-diag`（示例请改为强密码） | 控制台密码 |
+| `admin.password` | `JAVA_DIAG_ADMIN_PASSWORD` | 未配置时回退 `java-diag`（本地便利）；示例/部署模板为 `CHANGE_ME_ADMIN_PASSWORD`，共享/生产务必改强密码（弱/占位值启动会 WARNING） | 控制台密码 |
 
 ### 2.1 CLI（薄入口）
 

@@ -106,6 +106,11 @@ public final class GatewayHttpBootstrap {
         context.addServlet(new ServletHolder(new RootServlet()), "/");
 
         jetty.start();
+        if (config.usesWeakAdminPassword()) {
+            System.err.println(
+                    "WARNING: admin.password is blank, equals the built-in default, or is a CHANGE_ME*"
+                            + " placeholder — change it before shared/production use");
+        }
         System.err.println("java-diag gateway listening on http://" + config.httpHost() + ":" + config.httpPort());
         System.err.println("  Agent SSE:     /sse");
         System.err.println("  Agent MCP:     /mcp");

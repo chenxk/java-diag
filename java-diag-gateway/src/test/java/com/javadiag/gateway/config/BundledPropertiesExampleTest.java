@@ -57,7 +57,13 @@ class BundledPropertiesExampleTest {
         assertEquals(builtin.heartbeatTtlSeconds(), fromFile.heartbeatTtlSeconds());
         assertEquals(builtin.dumpCooldownMs(), fromFile.dumpCooldownMs());
         assertEquals(GatewayConfig.DEFAULT_ADMIN_USER, fromFile.adminUser());
-        assertEquals(GatewayConfig.DEFAULT_ADMIN_PASSWORD, fromFile.adminPassword());
+        String examplePassword = fromExample.get(GatewayConfig.PROP_ADMIN_PASSWORD);
+        assertFalse(examplePassword.isBlank(), "admin.password must be non-blank in example");
+        assertEquals(
+                GatewayConfig.EXAMPLE_ADMIN_PASSWORD_PLACEHOLDER,
+                examplePassword,
+                "example admin.password should be a CHANGE_ME placeholder, not the runtime default");
+        assertTrue(GatewayConfig.isWeakAdminPassword(examplePassword));
     }
 
     private static Properties loadBundledExample() throws Exception {

@@ -1,5 +1,7 @@
 # java-diag
 
+[English](README_EN.md)
+
 只读、可审计的 Java 线上排查 MCP。
 
 - **探针** `java-diag-mcp-server`：部署在业务机，HTTP MCP（也可 `--stdio`）

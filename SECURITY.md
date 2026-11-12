@@ -18,7 +18,7 @@ java-diag is a **read-oriented** diagnostics helper for Java processes:
 2. Always set strong non-empty tokens (startup fails if blank):
    - Probe / Gateway Agent Bearer (`auth.token`)
    - Registry API Bearer (`register.token`) — probe and gateway must match
-   - Admin console password (`admin.password`) — change the default before any shared environment
+   - Admin console password (`admin.password`) — example/deploy templates ship `CHANGE_ME_ADMIN_PASSWORD`; unset config falls back to a weak local default. Change before any shared/prod use (Gateway prints a startup WARNING for blank / default / `CHANGE_ME*` values)
 3. Keep `allowed.log.dirs` as narrow as practical.
 4. Gateway must be able to reach each probe’s `advertise.url`; treat that path as an internal admin channel.
 

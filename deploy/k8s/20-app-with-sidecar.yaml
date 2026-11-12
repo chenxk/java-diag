@@ -73,7 +73,7 @@ spec:
               value: "order-service"
             # 把 jar/mainClass 映射成稳定业务名（按需改）
             - name: JAVA_DIAG_APP_NAME_MAP
-              value: "order-service=order-service,MeorientB2bRpcServer=meorientb2b-rpc"
+              value: "OrderRpcServer=order-service,order-service=order-service"
             # 日志白名单：必须覆盖下面挂载的日志目录
             - name: JAVA_DIAG_ALLOWED_LOG_DIRS
               value: "/var/log/app,/tmp"
