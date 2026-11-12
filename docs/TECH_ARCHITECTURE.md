@@ -20,7 +20,7 @@
 
 做一个 **只读、可审计** 的 Java 事故副驾驶：
 
-- **单机**：本机一个探针（`java-diag-mcp-server`），暴露日志 + JVM 采集工具
+- **单机**：本机一个探针（`java-diag-probe`），暴露日志 + JVM 采集工具
 - **集群**：多节点探针 + Gateway 心跳注册与工具代理；Agent 只连一个入口
 
 本仓库 **探针 + Gateway 均以 MIT 开源**。「单机 / 集群」指部署形态。
@@ -62,7 +62,7 @@ Agent (Cursor / IDE)
         │ MCP（HTTP/SSE 或 --stdio）
         ▼
 ┌─────────────────────────────┐
-│  java-diag-mcp-server       │
+│  java-diag-probe       │
 │  ToolRegistrar + Log/JVM    │
 │  PathGuard / Audit / 限流   │
 └──────────────┬──────────────┘
@@ -104,7 +104,7 @@ Maven 父工程 + **两个**可运行模块（无独立 `common` / `probe-core` 
 ```
 java-diag/
 ├── pom.xml                      # 父 POM，Java 17，依赖管理
-├── java-diag-mcp-server/        # 探针
+├── java-diag-probe/        # 探针
 │   └── com.javadiag.mcp
 │       ├── JavaDiagMcpServer    # 入口（HTTP 默认 / --stdio）
 │       ├── config/              # DiagConfig、properties 加载
@@ -129,7 +129,7 @@ java-diag/
 
 | 模块 | 产物 | 默认端口 |
 |------|------|----------|
-| `java-diag-mcp-server` | shaded jar | `8765` |
+| `java-diag-probe` | shaded jar | `8765` |
 | `java-diag-gateway` | shaded jar | `8787` |
 
 ---
@@ -199,7 +199,7 @@ java-diag/
 
 > 均只读（`heap_dump` 等危险能力默认关闭）；有超时 / 截断 / 审计。
 
-### 7.1 探针（`java-diag-mcp-server`，15 个）
+### 7.1 探针（`java-diag-probe`，15 个）
 
 **Meta**
 
@@ -285,7 +285,7 @@ Gateway 转发探针时可带上心跳上报的 `probeToken`。
 
 ### 9.1 单机
 
-- HTTP：`java -jar java-diag-mcp-server.jar --config ...`（Agent 配 `http://host:8765/sse`）
+- HTTP：`java -jar java-diag-probe.jar --config ...`（Agent 配 `http://host:8765/sse`）
 - 或 `--stdio` 供本地 IDE 拉起
 
 ### 9.2 集群

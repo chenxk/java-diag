@@ -6,7 +6,7 @@
 
 Maven 父工程 + 两模块：
 
-- `java-diag-mcp-server` — 探针（HTTP/stdio MCP + 可选心跳注册）
+- `java-diag-probe` — 探针（HTTP/stdio MCP + 可选心跳注册）
 - `java-diag-gateway` — 集群 Gateway（内置 Registry + 工具代理）
 
 ## 探针 MCP 工具（15）

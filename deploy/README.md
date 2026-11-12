@@ -1,6 +1,6 @@
 # Deploy helpers
 
-- `java-diag-mcp-server/` / `java-diag-gateway/` — start scripts + properties templates  
+- `java-diag-probe/` / `java-diag-gateway/` — start scripts + properties templates  
 - `Dockerfile.probe` / `Dockerfile.gateway` — container images  
 - `k8s/` — Kubernetes sidecar / DaemonSet drafts
 
@@ -8,7 +8,7 @@
 
 ```bash
 mvn -q clean package
-cp java-diag-mcp-server/target/java-diag-mcp-server.jar deploy/java-diag-mcp-server/
+cp java-diag-probe/target/java-diag-probe.jar deploy/java-diag-probe/
 cp java-diag-gateway/target/java-diag-gateway.jar deploy/java-diag-gateway/
 ```
 

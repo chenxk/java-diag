@@ -4,7 +4,7 @@
 
 只读、可审计的 Java 线上排查 MCP。
 
-- **探针** `java-diag-mcp-server`：部署在业务机，HTTP MCP（也可 `--stdio`）
+- **探针** `java-diag-probe`：部署在业务机，HTTP MCP（也可 `--stdio`）
 - **网关** `java-diag-gateway`：集群入口 + 内置心跳注册；Agent 可只连 Gateway，也仍可直连探针
 - **平台**：Windows / macOS / Linux（进程发现：Linux 优先 `/proc`，其它平台走 `jps` / `ProcessHandle`）
 - **License**：[MIT](LICENSE)（探针与 Gateway 均开源）
@@ -26,7 +26,7 @@
 
 ```mermaid
 flowchart LR
-  Agent["Agent / IDE"] -->|"MCP SSE + Bearer"| Probe["java-diag-mcp-server"]
+  Agent["Agent / IDE"] -->|"MCP SSE + Bearer"| Probe["java-diag-probe"]
   Probe --> Logs["本机日志文件"]
   Probe --> Jvm["本机 JVM / jcmd"]
 ```
@@ -79,20 +79,20 @@ mvn -q clean package
 
 产物（fat jar，**不入库**；发版请用 CI artifact / GitHub Release）：
 
-- `java-diag-mcp-server/target/java-diag-mcp-server.jar`
+- `java-diag-probe/target/java-diag-probe.jar`
 - `java-diag-gateway/target/java-diag-gateway.jar`
 
 本地脚本目录 `deploy/java-diag-*/` 需要自行拷贝 jar：
 
 ```bash
-cp java-diag-mcp-server/target/java-diag-mcp-server.jar deploy/java-diag-mcp-server/
+cp java-diag-probe/target/java-diag-probe.jar deploy/java-diag-probe/
 cp java-diag-gateway/target/java-diag-gateway.jar deploy/java-diag-gateway/
 ```
 
 Docker（先 `mvn package`）：
 
 ```bash
-docker build -f deploy/Dockerfile.probe -t java-diag-mcp-server:local .
+docker build -f deploy/Dockerfile.probe -t java-diag-probe:local .
 docker build -f deploy/Dockerfile.gateway -t java-diag-gateway:local .
 ```
 
@@ -103,7 +103,7 @@ docker build -f deploy/Dockerfile.gateway -t java-diag-gateway:local .
 **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)**
 
 ```bash
-java -jar java-diag-mcp-server.jar --help
+java -jar java-diag-probe.jar --help
 java -jar java-diag-gateway.jar --help
 ```
 
@@ -114,11 +114,11 @@ java -jar java-diag-gateway.jar --help
 ## 单机探针
 
 ```bash
-cp java-diag-mcp-server/src/main/resources/java-diag-mcp-server.properties.example \
-   ./java-diag-mcp-server.properties
+cp java-diag-probe/src/main/resources/java-diag-probe.properties.example \
+   ./java-diag-probe.properties
 # 编辑 auth.token / register.token（必填，勿用占位值）、allowed.log.dirs 等
-java -jar java-diag-mcp-server/target/java-diag-mcp-server.jar \
-  --config ./java-diag-mcp-server.properties
+java -jar java-diag-probe/target/java-diag-probe.jar \
+  --config ./java-diag-probe.properties
 ```
 
 Agent 直连：
@@ -153,8 +153,8 @@ java -jar java-diag-gateway/target/java-diag-gateway.jar \
 `--service-name` / `JAVA_DIAG_SERVICE_NAME` 可选（默认本机主网卡 IP）。**无** `--instance-id`：实例身份由 `--advertise-url` 的 `host:port` 推导（与 Registry `mcpBaseUrl` 一致）。
 
 ```bash
-java -jar java-diag-mcp-server/target/java-diag-mcp-server.jar \
-  --config ./java-diag-mcp-server.properties \
+java -jar java-diag-probe/target/java-diag-probe.jar \
+  --config ./java-diag-probe.properties \
   --register-url http://gateway-host:8787 \
   --advertise-url http://10.0.1.11:8765
 ```

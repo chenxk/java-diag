@@ -105,17 +105,17 @@ public final class JavaDiagMcpServer {
 
                 Configuration load order:
                   1) built-in defaults
-                  2) properties file (--config <file>, else ./java-diag-mcp-server.properties if present)
+                  2) properties file (--config <file>, else ./java-diag-probe.properties if present)
                   3) environment variables (optional override)
                   4) CLI flags below (highest priority)
 
-                Example file (all keys): classpath java-diag-mcp-server.properties.example
+                Example file (all keys): classpath java-diag-probe.properties.example
                 Full reference: docs/CONFIGURATION.md
 
                 Usage:
-                  java -jar java-diag-mcp-server.jar --config ./java-diag-mcp-server.properties
-                  java -jar java-diag-mcp-server.jar --config ./probe.properties --port 8765 --token probe-secret
-                  java -jar java-diag-mcp-server.jar --stdio
+                  java -jar java-diag-probe.jar --config ./java-diag-probe.properties
+                  java -jar java-diag-probe.jar --config ./probe.properties --port 8765 --token probe-secret
+                  java -jar java-diag-probe.jar --stdio
 
                 CLI (common overrides):
                   --config <file>              explicit properties file (required to exist)

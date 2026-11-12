@@ -20,15 +20,15 @@ class JavaProcessServiceTest {
                 "com.example.Main",
                 JavaProcessService.extractMain("/usr/bin/java -cp out com.example.Main arg"));
         assertEquals(
-                "java-diag-mcp-server.jar",
-                JavaProcessService.extractMain("java-diag-mcp-server.jar"));
+                "java-diag-probe.jar",
+                JavaProcessService.extractMain("java-diag-probe.jar"));
         assertEquals(
                 "",
                 JavaProcessService.extractMain("C:\\Program Files\\Java\\jdk-17\\bin\\java.exe"));
         assertEquals(
-                "C:\\apps\\java-diag-mcp-server.jar",
+                "C:\\apps\\java-diag-probe.jar",
                 JavaProcessService.extractMain(
-                        "C:\\Program Files\\Java\\jdk-17\\bin\\java.exe -jar C:\\apps\\java-diag-mcp-server.jar"));
+                        "C:\\Program Files\\Java\\jdk-17\\bin\\java.exe -jar C:\\apps\\java-diag-probe.jar"));
     }
 
     @Test
@@ -93,7 +93,7 @@ class JavaProcessServiceTest {
         assertFalse(JavaProcessService.isReportableJvm(bare));
 
         JavaProcessInfo jar =
-                new JavaProcessInfo(2L, "java-diag-mcp-server.jar", "java-diag-mcp-server.jar", null, null, null, "…");
+                new JavaProcessInfo(2L, "java-diag-probe.jar", "java-diag-probe.jar", null, null, null, "…");
         assertTrue(JavaProcessService.isReportableJvm(jar));
     }
 
@@ -123,14 +123,14 @@ class JavaProcessServiceTest {
     @Test
     void parseJpsOutput() {
         String stdout = """
-                8228 java-diag-mcp-server.jar
+                8228 java-diag-probe.jar
                 27576 com.intellij.idea.Main -Xmx2048m
                 3844 jdk.jcmd/sun.tools.jps.Jps -lvm
                 """;
         List<JavaProcessInfo> list = JavaProcessService.parseJpsOutput(stdout);
         assertEquals(2, list.size());
         assertEquals(8228L, list.get(0).pid());
-        assertEquals("java-diag-mcp-server.jar", list.get(0).mainClassOrJar());
+        assertEquals("java-diag-probe.jar", list.get(0).mainClassOrJar());
         assertEquals(27576L, list.get(1).pid());
         assertEquals("com.intellij.idea.Main", list.get(1).mainClassOrJar());
         assertTrue(list.get(1).commandLine().contains("-Xmx2048m"));
@@ -268,7 +268,7 @@ class JavaProcessServiceTest {
     @Test
     void parseJpsOutputFeedsReportableRegistryApps() {
         String stdout = """
-                25096 java-diag-mcp-server.jar
+                25096 java-diag-probe.jar
                 18780 java-diag-gateway.jar
                 """;
         List<JavaProcessInfo> fromJps = JavaProcessService.parseJpsOutput(stdout);
@@ -282,7 +282,7 @@ class JavaProcessServiceTest {
     @Test
     void parseJpsOutputJarRowsSurviveReportableFilter() {
         String stdout = """
-                8228 C:\\apps\\java-diag-mcp-server.jar
+                8228 C:\\apps\\java-diag-probe.jar
                 9000 java-diag-gateway.jar -Xmx512m
                 42 C:\\Program Files\\Java\\jdk-17\\bin\\java.exe
                 """;
@@ -290,7 +290,7 @@ class JavaProcessServiceTest {
         long reportable =
                 fromJps.stream().filter(JavaProcessService::isReportableJvm).count();
         assertEquals(2, reportable, "jps lines with .jar must be included in apps");
-        assertTrue(fromJps.stream().anyMatch(p -> p.mainClassOrJar().contains("java-diag-mcp-server.jar")));
+        assertTrue(fromJps.stream().anyMatch(p -> p.mainClassOrJar().contains("java-diag-probe.jar")));
         assertTrue(fromJps.stream().anyMatch(p -> "java-diag-gateway.jar".equals(p.mainClassOrJar())));
     }
 

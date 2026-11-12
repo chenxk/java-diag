@@ -1,9 +1,9 @@
-# Probe image — build jars first: mvn -q -pl java-diag-mcp-server -am package
-# docker build -f deploy/Dockerfile.probe -t java-diag-mcp-server:local .
+# Probe image — build jars first: mvn -q -pl java-diag-probe -am package
+# docker build -f deploy/Dockerfile.probe -t java-diag-probe:local .
 FROM eclipse-temurin:17-jdk-jammy
 
 WORKDIR /opt/java-diag
-COPY java-diag-mcp-server/target/java-diag-mcp-server.jar /opt/java-diag/app.jar
+COPY java-diag-probe/target/java-diag-probe.jar /opt/java-diag/app.jar
 
 ENV JAVA_DIAG_HTTP_HOST=0.0.0.0 \
     JAVA_DIAG_HTTP_PORT=8765

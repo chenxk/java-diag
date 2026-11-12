@@ -4,7 +4,7 @@
 
 Read-oriented, auditable MCP for diagnosing Java processes in production.
 
-- **Probe** `java-diag-mcp-server`: runs on the app host; HTTP MCP (also `--stdio`)
+- **Probe** `java-diag-probe`: runs on the app host; HTTP MCP (also `--stdio`)
 - **Gateway** `java-diag-gateway`: cluster entry + built-in heartbeat registry; Agents can talk only to the Gateway, or still connect to probes directly
 - **Platforms**: Windows / macOS / Linux (process discovery: Linux prefers `/proc`; other platforms use `jps` / `ProcessHandle`)
 - **License**: [MIT](LICENSE) (probe and Gateway are both open source)
@@ -26,7 +26,7 @@ Read-oriented, auditable MCP for diagnosing Java processes in production.
 
 ```mermaid
 flowchart LR
-  Agent["Agent / IDE"] -->|"MCP SSE + Bearer"| Probe["java-diag-mcp-server"]
+  Agent["Agent / IDE"] -->|"MCP SSE + Bearer"| Probe["java-diag-probe"]
   Probe --> Logs["Local log files"]
   Probe --> Jvm["Local JVM / jcmd"]
 ```
@@ -79,20 +79,20 @@ mvn -q clean package
 
 Artifacts (fat jars, **not committed**; release via CI artifact / GitHub Release):
 
-- `java-diag-mcp-server/target/java-diag-mcp-server.jar`
+- `java-diag-probe/target/java-diag-probe.jar`
 - `java-diag-gateway/target/java-diag-gateway.jar`
 
 Local script dirs under `deploy/java-diag-*/` need the jars copied in:
 
 ```bash
-cp java-diag-mcp-server/target/java-diag-mcp-server.jar deploy/java-diag-mcp-server/
+cp java-diag-probe/target/java-diag-probe.jar deploy/java-diag-probe/
 cp java-diag-gateway/target/java-diag-gateway.jar deploy/java-diag-gateway/
 ```
 
 Docker (run `mvn package` first):
 
 ```bash
-docker build -f deploy/Dockerfile.probe -t java-diag-mcp-server:local .
+docker build -f deploy/Dockerfile.probe -t java-diag-probe:local .
 docker build -f deploy/Dockerfile.gateway -t java-diag-gateway:local .
 ```
 
@@ -103,7 +103,7 @@ Full CLI / env coverage (transport, host/port, tokens, log whitelist, timeouts, 
 **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)**
 
 ```bash
-java -jar java-diag-mcp-server.jar --help
+java -jar java-diag-probe.jar --help
 java -jar java-diag-gateway.jar --help
 ```
 
@@ -114,11 +114,11 @@ Load order: **built-in defaults → properties file → environment variables �
 ## Single-host probe
 
 ```bash
-cp java-diag-mcp-server/src/main/resources/java-diag-mcp-server.properties.example \
-   ./java-diag-mcp-server.properties
+cp java-diag-probe/src/main/resources/java-diag-probe.properties.example \
+   ./java-diag-probe.properties
 # Edit auth.token / register.token (required; do not leave placeholders), allowed.log.dirs, etc.
-java -jar java-diag-mcp-server/target/java-diag-mcp-server.jar \
-  --config ./java-diag-mcp-server.properties
+java -jar java-diag-probe/target/java-diag-probe.jar \
+  --config ./java-diag-probe.properties
 ```
 
 Agent direct to probe:
@@ -153,8 +153,8 @@ Credentials come from `admin.user` / `admin.password` (examples use `CHANGE_ME_*
 `--service-name` / `JAVA_DIAG_SERVICE_NAME` is optional (defaults to the primary NIC IP). There is **no** `--instance-id`: identity is derived from `--advertise-url`’s `host:port` (same as Registry `mcpBaseUrl`).
 
 ```bash
-java -jar java-diag-mcp-server/target/java-diag-mcp-server.jar \
-  --config ./java-diag-mcp-server.properties \
+java -jar java-diag-probe/target/java-diag-probe.jar \
+  --config ./java-diag-probe.properties \
   --register-url http://gateway-host:8787 \
   --advertise-url http://10.0.1.11:8765
 ```

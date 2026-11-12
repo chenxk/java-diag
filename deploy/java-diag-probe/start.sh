@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# java-diag-mcp-server（探针）启停脚本（jar / properties 与脚本同目录）
+# java-diag-probe（探针）启停脚本（jar / properties 与脚本同目录）
 #
 # 用法（须用 bash，勿用 sh start.sh；CentOS 上 sh 常为 dash，不支持 pipefail）:
 #   chmod +x start.sh && ./start.sh start
@@ -13,8 +13,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 APP_NAME="MCP Server"
-JAR="$SCRIPT_DIR/java-diag-mcp-server.jar"
-CONFIG="$SCRIPT_DIR/java-diag-mcp-server.properties"
+JAR="$SCRIPT_DIR/java-diag-probe.jar"
+CONFIG="$SCRIPT_DIR/java-diag-probe.properties"
 PID_FILE="$SCRIPT_DIR/mcp-server.pid"
 LOG_DIR="$SCRIPT_DIR/logs"
 LOG_FILE="$LOG_DIR/mcp-server.out"

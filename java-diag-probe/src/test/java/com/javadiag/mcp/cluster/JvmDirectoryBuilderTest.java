@@ -22,12 +22,12 @@ class JvmDirectoryBuilderTest {
                 List.of(
                         new JavaProcessInfo(
                                 25096L,
-                                "java-diag-mcp-server.jar",
-                                "java-diag-mcp-server.jar",
+                                "java-diag-probe.jar",
+                                "java-diag-probe.jar",
                                 null,
                                 null,
                                 null,
-                                "java-diag-mcp-server.jar"),
+                                "java-diag-probe.jar"),
                         new JavaProcessInfo(
                                 18780L,
                                 "java-diag-gateway.jar",
@@ -51,7 +51,7 @@ class JvmDirectoryBuilderTest {
         assertEquals(3, apps.size());
         assertEquals(18780L, ((Number) apps.get(0).get("pid")).longValue());
         assertEquals("java-diag-gateway.jar", apps.get(0).get("name"));
-        assertEquals("java-diag-mcp-server.jar", apps.get(1).get("name"));
+        assertEquals("java-diag-probe.jar", apps.get(1).get("name"));
         assertEquals("Main", apps.get(2).get("name"));
         for (Map<String, Object> app : apps) {
             assertFalse("exe".equalsIgnoreCase(String.valueOf(app.get("name"))));
@@ -73,18 +73,18 @@ class JvmDirectoryBuilderTest {
         mixed.add(
                 new JavaProcessInfo(
                         25096L,
-                        "java-diag-mcp-server.jar",
-                        "java-diag-mcp-server.jar",
+                        "java-diag-probe.jar",
+                        "java-diag-probe.jar",
                         null,
                         null,
                         null,
-                        "java-diag-mcp-server.jar"));
+                        "java-diag-probe.jar"));
 
         JvmDirectoryBuilder builder = new JvmDirectoryBuilder(new JavaProcessService(Optional.empty()), AppNameMapper.empty());
         List<Map<String, Object>> apps = builder.buildAppsFrom(mixed);
 
         assertEquals(1, apps.size());
-        assertEquals("java-diag-mcp-server.jar", apps.get(0).get("name"));
+        assertEquals("java-diag-probe.jar", apps.get(0).get("name"));
     }
 
     @Test

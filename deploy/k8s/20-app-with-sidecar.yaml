@@ -53,7 +53,7 @@ spec:
         # ---------- 诊断探针 Sidecar ----------
         - name: java-diag
           # TODO: 换成你们的探针镜像（建议基于 eclipse-temurin:17-jdk 打 jar）
-          image: your-registry/java-diag-mcp-server:latest
+          image: your-registry/java-diag-probe:latest
           imagePullPolicy: IfNotPresent
           ports:
             - name: mcp

@@ -39,7 +39,7 @@
   </dependencies>
 
   <build>
-    <finalName>java-diag-mcp-server</finalName>
+    <finalName>java-diag-probe</finalName>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

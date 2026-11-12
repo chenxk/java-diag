@@ -32,7 +32,7 @@ java-diag-gateway  (:8787)
 
 1. 已构建并推送镜像：
    - `your-registry/java-diag-gateway:<tag>`
-   - `your-registry/java-diag-mcp-server:<tag>`（建议基于带 `jps`/`jcmd` 的 JDK 镜像打包）
+   - `your-registry/java-diag-probe:<tag>`（建议基于带 `jps`/`jcmd` 的 JDK 镜像打包）
 2. 集群内 Gateway 能访问各 Pod 的 **advertise 地址**（默认 `http://<PodIP>:8765`）
 3. 业务日志写到 Sidecar 也能挂上的目录（示例用 `/var/log/app`）
 

@@ -1,4 +1,4 @@
-﻿# java-diag-mcp-server（探针）Windows 启停脚本（jar / properties 与脚本同目录）
+﻿# java-diag-probe（探针）Windows 启停脚本（jar / properties 与脚本同目录）
 #
 # 用法（推荐 start.cmd）:
 #   start.cmd start
@@ -19,8 +19,8 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $ScriptDir
 
 $AppName = "MCP Server"
-$Jar = Join-Path $ScriptDir "java-diag-mcp-server.jar"
-$Config = Join-Path $ScriptDir "java-diag-mcp-server.properties"
+$Jar = Join-Path $ScriptDir "java-diag-probe.jar"
+$Config = Join-Path $ScriptDir "java-diag-probe.properties"
 $PidFile = Join-Path $ScriptDir "mcp-server.pid"
 $LogDir = Join-Path $ScriptDir "logs"
 $LogFile = Join-Path $LogDir "mcp-server.out"

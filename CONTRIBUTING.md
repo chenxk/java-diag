@@ -15,7 +15,7 @@ mvn -q clean test package
 
 Artifacts:
 
-- `java-diag-mcp-server/target/java-diag-mcp-server.jar`
+- `java-diag-probe/target/java-diag-probe.jar`
 - `java-diag-gateway/target/java-diag-gateway.jar`
 
 Copy jars into `deploy/*/ ` locally if you use the helper scripts — **do not commit jars**.
@@ -24,7 +24,7 @@ Copy jars into `deploy/*/ ` locally if you use the helper scripts — **do not c
 
 | Module | Role |
 |--------|------|
-| `java-diag-mcp-server` | Probe (MCP tools + optional heartbeat) |
+| `java-diag-probe` | Probe (MCP tools + optional heartbeat) |
 | `java-diag-gateway` | Cluster entry + registry + tool proxy |
 | `docs/` | Configuration & architecture |
 | `deploy/` | Local scripts + Kubernetes drafts |

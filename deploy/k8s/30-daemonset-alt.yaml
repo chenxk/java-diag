@@ -24,7 +24,7 @@ spec:
       hostPID: true
       containers:
         - name: java-diag
-          image: your-registry/java-diag-mcp-server:latest
+          image: your-registry/java-diag-probe:latest
           imagePullPolicy: IfNotPresent
           securityContext:
             # 视环境收紧；hostPID 诊断常需要较高权限

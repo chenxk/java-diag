@@ -24,7 +24,7 @@ import java.util.regex.Pattern;
  */
 public final class DiagConfig {
 
-    /** Dot keys in {@code java-diag-mcp-server.properties} (legacy {@code JAVA_DIAG_*} names also accepted). */
+    /** Dot keys in {@code java-diag-probe.properties} (legacy {@code JAVA_DIAG_*} names also accepted). */
     public static final String PROP_TRANSPORT = "transport";
     public static final String PROP_HTTP_HOST = "http.host";
     public static final String PROP_HTTP_PORT = "http.port";

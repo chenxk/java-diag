@@ -15,7 +15,7 @@ import java.util.Properties;
  */
 public final class SettingsProperties {
 
-    public static final String DEFAULT_FILENAME = "java-diag-mcp-server.properties";
+    public static final String DEFAULT_FILENAME = "java-diag-probe.properties";
 
     private SettingsProperties() {}
 
@@ -44,7 +44,7 @@ public final class SettingsProperties {
             if (!Files.isRegularFile(explicit)) {
                 throw new IllegalArgumentException(
                         "Config file not found or not a file: " + explicit
-                                + " (copy from java-diag-mcp-server.properties.example)");
+                                + " (copy from java-diag-probe.properties.example)");
             }
             fileSettings.putAll(readPropertiesFile(explicit));
         } else {

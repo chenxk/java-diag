@@ -32,6 +32,6 @@ jobs:
         with:
           name: java-diag-jars
           path: |
-            java-diag-mcp-server/target/java-diag-mcp-server.jar
+            java-diag-probe/target/java-diag-probe.jar
             java-diag-gateway/target/java-diag-gateway.jar
           if-no-files-found: error

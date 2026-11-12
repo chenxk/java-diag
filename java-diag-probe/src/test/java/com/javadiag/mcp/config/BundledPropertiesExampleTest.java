@@ -23,7 +23,7 @@ class BundledPropertiesExampleTest {
         assertEquals(19, requiredKeys.size(), "DiagConfig PROP_* count drifted; update properties.example");
         Properties props = loadBundledExample();
         for (String key : requiredKeys) {
-            assertTrue(props.containsKey(key), "missing key in java-diag-mcp-server.properties.example: " + key);
+            assertTrue(props.containsKey(key), "missing key in java-diag-probe.properties.example: " + key);
         }
     }
 
@@ -99,8 +99,8 @@ class BundledPropertiesExampleTest {
 
     private static Properties loadBundledExample() throws Exception {
         try (InputStream in =
-                BundledPropertiesExampleTest.class.getResourceAsStream("/java-diag-mcp-server.properties.example")) {
-            assertNotNull(in, "java-diag-mcp-server.properties.example missing from classpath");
+                BundledPropertiesExampleTest.class.getResourceAsStream("/java-diag-probe.properties.example")) {
+            assertNotNull(in, "java-diag-probe.properties.example missing from classpath");
             Properties props = new Properties();
             props.load(in);
             return props;

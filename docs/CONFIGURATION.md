@@ -1,10 +1,10 @@
 # 配置参考 / Configuration Reference
 
-探针（`java-diag-mcp-server`）与网关（`java-diag-gateway`）的配置项。
+探针（`java-diag-probe`）与网关（`java-diag-gateway`）的配置项。
 
 > **完整参数表**：以 classpath 内 `*.properties.example` 为准（每个可配置键均列出 `key=默认值`）。本文档说明加载顺序、CLI 映射与 env 附录；改配置时优先复制 example 再按需修改。
 
-- 探针：`java-diag-mcp-server/src/main/resources/java-diag-mcp-server.properties.example`
+- 探针：`java-diag-probe/src/main/resources/java-diag-probe.properties.example`
 - 网关：`java-diag-gateway/src/main/resources/java-diag-gateway.properties.example`
 
 ## 加载顺序（推荐）
@@ -16,7 +16,7 @@
 
 | 场景 | 行为 |
 |------|------|
-| 未指定 `--config` | 若当前工作目录存在 `./java-diag-mcp-server.properties` 或 `./java-diag-gateway.properties` 则自动加载；不存在则跳过 |
+| 未指定 `--config` | 若当前工作目录存在 `./java-diag-probe.properties` 或 `./java-diag-gateway.properties` 则自动加载；不存在则跳过 |
 | `--config /path/to/file` | 必须存在，否则启动失败并提示 |
 | 显式路径缺失 | 报错（copy from `*.properties.example`） |
 
@@ -25,13 +25,13 @@ Properties 内可使用 **点分键**（推荐）或 legacy **`JAVA_DIAG_*` env 
 **安全**：`auth.token` 与 `register.token` 均为**必填且不可为空**（探针与网关都强制）；空值启动失败。探针与网关的 `register.token` 须一致。
 
 ```bash
-java -jar java-diag-mcp-server.jar --help
+java -jar java-diag-probe.jar --help
 java -jar java-diag-gateway.jar --help
 ```
 
 ---
 
-## 1. 探针 Probe（`java-diag-mcp-server`）
+## 1. 探针 Probe（`java-diag-probe`）
 
 ### 1.0 Properties 键 ↔ 含义 ↔ 默认
 
@@ -81,17 +81,17 @@ java -jar java-diag-gateway.jar --help
 ### 1.2 探针示例
 
 ```bash
-cp java-diag-mcp-server/src/main/resources/java-diag-mcp-server.properties.example \
-   ./java-diag-mcp-server.properties
+cp java-diag-probe/src/main/resources/java-diag-probe.properties.example \
+   ./java-diag-probe.properties
 # 编辑 auth.token / register.token（必填）、allowed.log.dirs、register.url 等
 
-java -jar java-diag-mcp-server.jar --config ./java-diag-mcp-server.properties
+java -jar java-diag-probe.jar --config ./java-diag-probe.properties
 
 # 临时覆盖端口
-java -jar java-diag-mcp-server.jar --config ./java-diag-mcp-server.properties --port 8766
+java -jar java-diag-probe.jar --config ./java-diag-probe.properties --port 8766
 
 # 本地 IDE（仍须提供两个 token：文件 / env / CLI）
-java -jar java-diag-mcp-server.jar --stdio --token probe-secret --register-token reg-secret
+java -jar java-diag-probe.jar --stdio --token probe-secret --register-token reg-secret
 ```
 
 ---
@@ -158,7 +158,7 @@ java -jar java-diag-gateway.jar --config ./gw.properties --token agent-override
 
 | 组件 | 类 |
 |------|-----|
-| Probe 配置 | `java-diag-mcp-server/.../config/DiagConfig.java` |
+| Probe 配置 | `java-diag-probe/.../config/DiagConfig.java` |
 | Probe properties 加载 | `.../config/SettingsProperties.java` |
 | Probe 入口 | `.../JavaDiagMcpServer.java` |
 | Gateway 配置 | `java-diag-gateway/.../config/GatewayConfig.java` |
