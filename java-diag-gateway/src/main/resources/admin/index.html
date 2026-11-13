@@ -12,14 +12,19 @@
   <link rel="stylesheet" href="/admin/app.css">
 </head>
 <body>
-  <a class="skip-link" href="#main-content">跳到主内容</a>
+  <a class="skip-link" href="#main-content" data-i18n="a11y.skip">跳到主内容</a>
+
+  <div class="lang-switch lang-switch-auth" role="group" data-i18n-aria="lang.group" aria-label="语言">
+    <button type="button" class="lang-btn" data-lang="zh" aria-pressed="true">中文</button>
+    <button type="button" class="lang-btn" data-lang="en" aria-pressed="false">EN</button>
+  </div>
 
   <div id="auth-shell" class="auth-shell">
     <section id="panel-loading" class="panel session-loading" aria-live="polite" aria-busy="true">
       <div class="session-loader" role="status">
         <span class="session-loader-ring" aria-hidden="true"></span>
-        <p class="session-loader-label">校验会话…</p>
-        <p class="hint">正在连接 Registry Console…</p>
+        <p class="session-loader-label" data-i18n="loading.label">校验会话…</p>
+        <p class="hint" data-i18n="loading.hint">正在连接 Registry Console…</p>
       </div>
     </section>
 
@@ -31,20 +36,20 @@
           <p class="sub">Gateway Registry Console</p>
         </div>
       </div>
-      <h2>控制台登录</h2>
-      <p class="hint">与 Agent Bearer / Registry token 独立；默认账号见文档。</p>
+      <h2 data-i18n="login.title">控制台登录</h2>
+      <p class="hint" data-i18n="login.hint">与 Agent Bearer / Registry token 独立；默认账号见文档。</p>
       <form id="form-login" autocomplete="on">
         <label>
-          <span>用户名</span>
+          <span data-i18n="login.username">用户名</span>
           <input name="username" type="text" required autocomplete="username" spellcheck="false" autocapitalize="off">
         </label>
         <label>
-          <span>密码</span>
+          <span data-i18n="login.password">密码</span>
           <input name="password" type="password" required autocomplete="current-password">
         </label>
         <p class="err" id="login-error" hidden role="alert" aria-live="assertive"></p>
         <button type="submit" class="btn primary" id="btn-login">
-          <span class="btn-label">进入控制台</span>
+          <span class="btn-label" data-i18n="login.submit">进入控制台</span>
           <span class="btn-spinner" aria-hidden="true" hidden></span>
         </button>
       </form>
@@ -54,7 +59,7 @@
   <div id="app-shell" class="app-shell" hidden>
     <div class="sidebar-backdrop" id="sidebar-backdrop" hidden></div>
 
-    <aside class="sidebar" id="sidebar" aria-label="主导航">
+    <aside class="sidebar" id="sidebar" data-i18n-aria="nav.sidebar" aria-label="主导航">
       <div class="sidebar-brand">
         <span class="brand-mark" aria-hidden="true"></span>
         <div>
@@ -62,31 +67,35 @@
         </div>
       </div>
 
-      <nav class="sidebar-nav" role="tablist" aria-label="控制台分区" aria-orientation="vertical">
+      <nav class="sidebar-nav" role="tablist" data-i18n-aria="nav.sections" aria-label="控制台分区" aria-orientation="vertical">
         <button type="button" class="nav-item" role="tab" id="tab-mcp" aria-selected="true" aria-controls="tab-panel-mcp" data-tab="mcp">
-          <span class="nav-item-label">MCP 配置</span>
-          <span class="nav-item-hint">Agent 接入</span>
+          <span class="nav-item-label" data-i18n="nav.mcp">MCP 配置</span>
+          <span class="nav-item-hint" data-i18n="nav.mcp.hint">Agent 接入</span>
         </button>
         <button type="button" class="nav-item" role="tab" id="tab-instances" aria-selected="false" aria-controls="tab-panel-instances" tabindex="-1" data-tab="instances">
-          <span class="nav-item-label">探针实例</span>
+          <span class="nav-item-label" data-i18n="nav.instances">探针实例</span>
           <span class="nav-item-hint">Registry</span>
         </button>
       </nav>
 
       <div class="sidebar-foot">
         <div class="sidebar-meta" id="refresh-meta">—</div>
-        <button type="button" class="btn ghost btn-compact btn-block" id="btn-logout">退出登录</button>
+        <button type="button" class="btn ghost btn-compact btn-block" id="btn-logout" data-i18n="nav.logout">退出登录</button>
       </div>
     </aside>
 
     <div class="shell-main">
       <header class="content-bar">
-        <button type="button" class="btn ghost btn-icon sidebar-toggle" id="btn-sidebar-toggle" aria-label="打开菜单" aria-controls="sidebar" aria-expanded="false">
+        <button type="button" class="btn ghost btn-icon sidebar-toggle" id="btn-sidebar-toggle" data-i18n-aria="nav.menuOpen" aria-label="打开菜单" aria-controls="sidebar" aria-expanded="false">
           <span aria-hidden="true">☰</span>
         </button>
         <div class="content-bar-title">
-          <h2 id="page-title">MCP 配置</h2>
-          <p class="content-bar-sub" id="page-sub">Agent MCP 接入片段</p>
+          <h2 id="page-title" data-i18n="tab.mcp.title">MCP 配置</h2>
+          <p class="content-bar-sub" id="page-sub" data-i18n="tab.mcp.sub">Agent MCP 接入片段</p>
+        </div>
+        <div class="lang-switch lang-switch-app" role="group" data-i18n-aria="lang.group" aria-label="语言">
+          <button type="button" class="lang-btn" data-lang="zh" aria-pressed="true">中文</button>
+          <button type="button" class="lang-btn" data-lang="en" aria-pressed="false">EN</button>
         </div>
       </header>
 
@@ -94,10 +103,16 @@
         <section id="panel-console" class="console-panel">
           <div id="tab-panel-mcp" class="tab-panel" role="tabpanel" aria-labelledby="tab-mcp">
             <section class="mcp-panel" id="mcp-panel" aria-labelledby="page-title">
-              <p class="hint mcp-lead">下方为可粘贴的 <code translate="no">mcp.json</code> 片段（含 <code translate="no">mcpServers</code>；登录后可见 Agent token）。</p>
+              <p class="hint mcp-lead">
+                <span data-i18n="mcp.lead.before">下方为可粘贴的</span>
+                <code translate="no">mcp.json</code>
+                <span data-i18n="mcp.lead.mid">片段（含</span>
+                <code translate="no">mcpServers</code>
+                <span data-i18n="mcp.lead.after">；登录后可见 Agent token）。</span>
+              </p>
               <div class="mcp-actions">
-                <button type="button" class="btn ghost btn-compact" id="btn-copy-url">复制 URL</button>
-                <button type="button" class="btn ghost btn-compact" id="btn-copy-json">复制完整 JSON</button>
+                <button type="button" class="btn ghost btn-compact" id="btn-copy-url" data-i18n="mcp.copyUrl">复制 URL</button>
+                <button type="button" class="btn ghost btn-compact" id="btn-copy-json" data-i18n="mcp.copyJson">复制完整 JSON</button>
                 <span class="copy-toast" id="copy-toast" hidden role="status" aria-live="polite"></span>
               </div>
               <pre class="mcp-snippet mono" id="mcp-snippet" tabindex="0" translate="no">{}</pre>
@@ -109,26 +124,26 @@
             <div class="instance-toolbar">
               <div class="instance-filters">
                 <label>
-                  <span>Service 过滤</span>
-                  <input type="search" id="filter-service" name="service" placeholder="probe serviceName…" autocomplete="off" spellcheck="false">
+                  <span data-i18n="filter.service">Service 过滤</span>
+                  <input type="search" id="filter-service" name="service" data-i18n-placeholder="filter.service.ph" placeholder="probe serviceName…" autocomplete="off" spellcheck="false">
                 </label>
                 <label>
-                  <span>App / JVM 过滤</span>
-                  <input type="search" id="filter-app" name="app" placeholder="业务名或 mainClass…" autocomplete="off" spellcheck="false">
+                  <span data-i18n="filter.app">App / JVM 过滤</span>
+                  <input type="search" id="filter-app" name="app" data-i18n-placeholder="filter.app.ph" placeholder="业务名或 mainClass…" autocomplete="off" spellcheck="false">
                 </label>
               </div>
 
-              <div class="stats" aria-label="实例统计">
+              <div class="stats" data-i18n-aria="stats.label" aria-label="实例统计">
                 <div class="stat">
-                  <span class="stat-label">注册总数</span>
+                  <span class="stat-label" data-i18n="stats.total">注册总数</span>
                   <span class="stat-value tabular" id="stat-count">0</span>
                 </div>
                 <div class="stat">
-                  <span class="stat-label">健康</span>
+                  <span class="stat-label" data-i18n="stats.healthy">健康</span>
                   <span class="stat-value tabular ok" id="stat-healthy">0</span>
                 </div>
                 <div class="stat">
-                  <span class="stat-label">过期 / 不健康</span>
+                  <span class="stat-label" data-i18n="stats.unhealthy">过期 / 不健康</span>
                   <span class="stat-value tabular warn" id="stat-unhealthy">0</span>
                 </div>
               </div>
@@ -138,7 +153,7 @@
               <table>
                 <thead>
                   <tr>
-                    <th scope="col">状态</th>
+                    <th scope="col" data-i18n="th.status">状态</th>
                     <th scope="col">Service</th>
                     <th scope="col">Instance</th>
                     <th scope="col">Host</th>
@@ -146,15 +161,19 @@
                     <th scope="col">Tags</th>
                     <th scope="col">Apps</th>
                     <th scope="col">Version</th>
-                    <th scope="col">最后心跳</th>
-                    <th scope="col">操作</th>
+                    <th scope="col" data-i18n="th.heartbeat">最后心跳</th>
+                    <th scope="col" data-i18n="th.actions">操作</th>
                   </tr>
                 </thead>
                 <tbody id="instance-rows"></tbody>
               </table>
               <div id="empty-state" class="empty" hidden>
-                <p>暂无注册探针</p>
-                <p class="hint">探针配置 <code translate="no">--register-url</code> 后会出现在此列表（约 5–10s 刷新）。</p>
+                <p data-i18n="instances.empty">暂无注册探针</p>
+                <p class="hint">
+                  <span data-i18n="instances.empty.hint.before">探针配置</span>
+                  <code translate="no">--register-url</code>
+                  <span data-i18n="instances.empty.hint.after">后会出现在此列表（约 5–10s 刷新）。</span>
+                </p>
               </div>
             </div>
           </div>
@@ -162,7 +181,7 @@
       </main>
 
       <footer class="foot">
-        <span>只读视图 · 数据来自 InMemoryRegistry</span>
+        <span data-i18n="foot.note">只读视图 · 数据来自 InMemoryRegistry</span>
         <span id="foot-clock" class="tabular"></span>
       </footer>
     </div>
@@ -173,17 +192,23 @@
     <div class="modal-card">
       <header class="modal-head">
         <div>
-          <h2 id="probe-mcp-modal-title">探针详情 · MCP</h2>
+          <h2 id="probe-mcp-modal-title" data-i18n="modal.title">探针详情 · MCP</h2>
           <p class="hint" id="probe-mcp-modal-sub" translate="no">—</p>
         </div>
-        <button type="button" class="btn ghost btn-icon" id="probe-mcp-modal-close" data-modal-close aria-label="关闭">✕</button>
+        <button type="button" class="btn ghost btn-icon" id="probe-mcp-modal-close" data-modal-close data-i18n-aria="modal.close" aria-label="关闭">✕</button>
       </header>
       <section class="probe-apps-block" id="probe-apps-block" aria-labelledby="probe-apps-title">
         <div class="probe-apps-head">
-          <h3 class="probe-apps-title" id="probe-apps-title">本机 JVM 目录</h3>
+          <h3 class="probe-apps-title" id="probe-apps-title" data-i18n="modal.apps.title">本机 JVM 目录</h3>
           <span class="probe-apps-count mono tabular" id="probe-apps-count" hidden></span>
         </div>
-        <p class="hint" id="probe-apps-hint">来自心跳 <code translate="no">apps[]</code>；网关侧可用 <code translate="no">diag.resolve_service</code> 按 name 解析 pid。</p>
+        <p class="hint" id="probe-apps-hint">
+          <span data-i18n="modal.apps.hint.before">来自心跳</span>
+          <code translate="no">apps[]</code>
+          <span data-i18n="modal.apps.hint.mid">；网关侧可用</span>
+          <code translate="no">diag.resolve_service</code>
+          <span data-i18n="modal.apps.hint.after">按 name 解析 pid。</span>
+        </p>
         <div class="probe-apps-table-wrap" id="probe-apps-table-wrap" hidden>
           <table class="probe-apps-table">
             <thead>
@@ -198,12 +223,12 @@
             <tbody id="probe-apps-tbody"></tbody>
           </table>
         </div>
-        <p class="probe-apps-empty" id="probe-apps-empty" hidden>暂无上报 JVM（等待下一次心跳，或探针未启用进程扫描）</p>
+        <p class="probe-apps-empty" id="probe-apps-empty" data-i18n="modal.apps.empty" hidden>暂无上报 JVM（等待下一次心跳，或探针未启用进程扫描）</p>
       </section>
       <pre class="mcp-snippet mono" id="probe-mcp-snippet" tabindex="0" translate="no">{}</pre>
       <div class="modal-actions">
-        <button type="button" class="btn ghost btn-compact" id="probe-mcp-copy-url">复制 URL</button>
-        <button type="button" class="btn primary btn-compact" id="probe-mcp-copy-json">复制完整 JSON</button>
+        <button type="button" class="btn ghost btn-compact" id="probe-mcp-copy-url" data-i18n="mcp.copyUrl">复制 URL</button>
+        <button type="button" class="btn primary btn-compact" id="probe-mcp-copy-json" data-i18n="mcp.copyJson">复制完整 JSON</button>
         <span class="copy-toast" id="probe-mcp-copy-toast" hidden role="status" aria-live="polite"></span>
       </div>
       <p class="hint mcp-token-hint" id="probe-mcp-token-hint" hidden></p>
