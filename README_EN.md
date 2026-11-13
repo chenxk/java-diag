@@ -46,6 +46,11 @@ cd ../java-diag-probe
 chmod +x start.sh && ./start.sh start
 ```
 
+Optional: confirm via Admin — after Gateway is up, open `http://<gateway-host>:8787/admin/` and sign in with `admin.user` / `admin.password` (change any `CHANGE_ME_*`). Use sidebar **探针实例** for the registered Probe list; **MCP 配置** or a row’s **查看 MCP** to **复制 URL** / **复制完整 JSON**. Wire the Agent in the next step.
+
+![mcp_config.png](pics/mcp_config.png)
+![probe_list.png](pics/probe_list.png)
+
 ### 4. Configure MCP in your Agent (Gateway)
 
 Default port `8787`; Bearer = gateway `auth.token`.

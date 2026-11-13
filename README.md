@@ -47,6 +47,11 @@ cd ../java-diag-probe
 chmod +x start.sh && ./start.sh start
 ```
 
+可选：用后台确认 — Gateway 起来后浏览器打开 `http://<gateway-host>:8787/admin/`，用配置里的 `admin.user` / `admin.password` 登录（务必改掉 `CHANGE_ME_*`）。侧栏「探针实例」可看已注册 Probe；「MCP 配置」或探针行的「查看 MCP」可「复制 URL」/「复制完整 JSON」。给 Agent 正式配 MCP 仍见下一步。
+
+![mcp_config.png](pics/mcp_config.png)
+![probe_list.png](pics/probe_list.png)
+
 ### 4. 在 Agent 里配 MCP（连 Gateway）
 
 URL 对齐默认端口 `8787`；Bearer 填网关的 `auth.token`。

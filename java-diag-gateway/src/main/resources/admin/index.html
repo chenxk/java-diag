@@ -2,31 +2,32 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0f1419">
   <title>java-diag · Registry Console</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/admin/app.css">
 </head>
 <body>
-  <div class="scanline" aria-hidden="true"></div>
-  <div class="grid-bg" aria-hidden="true"></div>
+  <a class="skip-link" href="#main-content">跳到主内容</a>
 
   <div id="auth-shell" class="auth-shell">
     <section id="panel-loading" class="panel session-loading" aria-live="polite" aria-busy="true">
       <div class="session-loader" role="status">
         <span class="session-loader-ring" aria-hidden="true"></span>
-        <p class="session-loader-label">校验会话</p>
+        <p class="session-loader-label">校验会话…</p>
         <p class="hint">正在连接 Registry Console…</p>
       </div>
     </section>
 
     <section id="panel-login" class="panel login-panel" hidden>
       <div class="login-brand">
-        <span class="brand-mark" aria-hidden="true">◇</span>
+        <span class="brand-mark" aria-hidden="true"></span>
         <div>
-          <h1>JAVA-DIAG</h1>
+          <h1 translate="no">java-diag</h1>
           <p class="sub">Gateway Registry Console</p>
         </div>
       </div>
@@ -35,14 +36,17 @@
       <form id="form-login" autocomplete="on">
         <label>
           <span>用户名</span>
-          <input name="username" type="text" required autocomplete="username">
+          <input name="username" type="text" required autocomplete="username" spellcheck="false" autocapitalize="off">
         </label>
         <label>
           <span>密码</span>
           <input name="password" type="password" required autocomplete="current-password">
         </label>
-        <p class="err" id="login-error" hidden></p>
-        <button type="submit" class="btn primary">进入控制台</button>
+        <p class="err" id="login-error" hidden role="alert" aria-live="assertive"></p>
+        <button type="submit" class="btn primary" id="btn-login">
+          <span class="btn-label">进入控制台</span>
+          <span class="btn-spinner" aria-hidden="true" hidden></span>
+        </button>
       </form>
     </section>
   </div>
@@ -52,14 +56,14 @@
 
     <aside class="sidebar" id="sidebar" aria-label="主导航">
       <div class="sidebar-brand">
-        <span class="brand-mark" aria-hidden="true">◇</span>
+        <span class="brand-mark" aria-hidden="true"></span>
         <div>
-          <h1>JAVA-DIAG</h1>
-          <p class="sub"></p>
+          <h1 translate="no">java-diag</h1>
+          <p class="sub">Registry</p>
         </div>
       </div>
 
-      <nav class="sidebar-nav" role="tablist" aria-label="控制台分区">
+      <nav class="sidebar-nav" role="tablist" aria-label="控制台分区" aria-orientation="vertical">
         <button type="button" class="nav-item" role="tab" id="tab-mcp" aria-selected="true" aria-controls="tab-panel-mcp" data-tab="mcp">
           <span class="nav-item-label">MCP 配置</span>
           <span class="nav-item-hint">Agent 接入</span>
@@ -71,7 +75,7 @@
       </nav>
 
       <div class="sidebar-foot">
-        <div class="sidebar-meta mono" id="refresh-meta">—</div>
+        <div class="sidebar-meta" id="refresh-meta">—</div>
         <button type="button" class="btn ghost btn-compact btn-block" id="btn-logout">退出登录</button>
       </div>
     </aside>
@@ -87,19 +91,17 @@
         </div>
       </header>
 
-      <main class="content-main">
+      <main class="content-main" id="main-content" tabindex="-1">
         <section id="panel-console" class="console-panel">
           <div id="tab-panel-mcp" class="tab-panel" role="tabpanel" aria-labelledby="tab-mcp">
             <section class="mcp-panel" id="mcp-panel" aria-labelledby="page-title">
-              <div class="mcp-panel-head">
-                <p class="hint">下方为可粘贴的 <code>mcp.json</code> 片段（含 <code>mcpServers</code>；登录后可见 Agent token）。</p>
-                <div class="mcp-actions">
-                  <button type="button" class="btn ghost btn-compact" id="btn-copy-url">复制 URL</button>
-                  <button type="button" class="btn ghost btn-compact" id="btn-copy-json">复制完整 JSON</button>
-                  <span class="copy-toast" id="copy-toast" hidden role="status"></span>
-                </div>
+              <p class="hint mcp-lead">下方为可粘贴的 <code translate="no">mcp.json</code> 片段（含 <code translate="no">mcpServers</code>；登录后可见 Agent token）。</p>
+              <div class="mcp-actions">
+                <button type="button" class="btn ghost btn-compact" id="btn-copy-url">复制 URL</button>
+                <button type="button" class="btn ghost btn-compact" id="btn-copy-json">复制完整 JSON</button>
+                <span class="copy-toast" id="copy-toast" hidden role="status" aria-live="polite"></span>
               </div>
-              <pre class="mcp-snippet mono" id="mcp-snippet" tabindex="0">{}</pre>
+              <pre class="mcp-snippet mono" id="mcp-snippet" tabindex="0" translate="no">{}</pre>
               <p class="hint mcp-token-hint" id="mcp-token-hint" hidden></p>
             </section>
           </div>
@@ -109,26 +111,26 @@
               <div class="instance-filters">
                 <label>
                   <span>Service 过滤</span>
-                  <input type="search" id="filter-service" placeholder="probe serviceName" autocomplete="off">
+                  <input type="search" id="filter-service" name="service" placeholder="probe serviceName…" autocomplete="off" spellcheck="false">
                 </label>
                 <label>
                   <span>App / JVM 过滤</span>
-                  <input type="search" id="filter-app" placeholder="业务名或 mainClass 子串" autocomplete="off">
+                  <input type="search" id="filter-app" name="app" placeholder="业务名或 mainClass…" autocomplete="off" spellcheck="false">
                 </label>
               </div>
 
               <div class="stats" aria-label="实例统计">
                 <div class="stat">
                   <span class="stat-label">注册总数</span>
-                  <span class="stat-value" id="stat-count">0</span>
+                  <span class="stat-value tabular" id="stat-count">0</span>
                 </div>
                 <div class="stat">
                   <span class="stat-label">健康</span>
-                  <span class="stat-value ok" id="stat-healthy">0</span>
+                  <span class="stat-value tabular ok" id="stat-healthy">0</span>
                 </div>
                 <div class="stat">
                   <span class="stat-label">过期 / 不健康</span>
-                  <span class="stat-value warn" id="stat-unhealthy">0</span>
+                  <span class="stat-value tabular warn" id="stat-unhealthy">0</span>
                 </div>
               </div>
             </div>
@@ -137,23 +139,23 @@
               <table>
                 <thead>
                   <tr>
-                    <th>状态</th>
-                    <th>Service</th>
-                    <th>Instance</th>
-                    <th>Host</th>
-                    <th>MCP Base</th>
-                    <th>Tags</th>
-                    <th>Apps</th>
-                    <th>Version</th>
-                    <th>最后心跳</th>
-                    <th></th>
+                    <th scope="col">状态</th>
+                    <th scope="col">Service</th>
+                    <th scope="col">Instance</th>
+                    <th scope="col">Host</th>
+                    <th scope="col">MCP Base</th>
+                    <th scope="col">Tags</th>
+                    <th scope="col">Apps</th>
+                    <th scope="col">Version</th>
+                    <th scope="col">最后心跳</th>
+                    <th scope="col">操作</th>
                   </tr>
                 </thead>
                 <tbody id="instance-rows"></tbody>
               </table>
               <div id="empty-state" class="empty" hidden>
                 <p>暂无注册探针</p>
-                <p class="hint">探针配置 <code>--register-url</code> 后会出现在此列表（约 5–10s 刷新）。</p>
+                <p class="hint">探针配置 <code translate="no">--register-url</code> 后会出现在此列表（约 5–10s 刷新）。</p>
               </div>
             </div>
           </div>
@@ -162,7 +164,7 @@
 
       <footer class="foot">
         <span>只读视图 · 数据来自 InMemoryRegistry</span>
-        <span id="foot-clock"></span>
+        <span id="foot-clock" class="tabular"></span>
       </footer>
     </div>
   </div>
@@ -173,25 +175,25 @@
       <header class="modal-head">
         <div>
           <h2 id="probe-mcp-modal-title">探针详情 · MCP</h2>
-          <p class="hint" id="probe-mcp-modal-sub">—</p>
+          <p class="hint" id="probe-mcp-modal-sub" translate="no">—</p>
         </div>
         <button type="button" class="btn ghost btn-icon" id="probe-mcp-modal-close" data-modal-close aria-label="关闭">✕</button>
       </header>
       <section class="probe-apps-block" id="probe-apps-block" aria-labelledby="probe-apps-title">
         <div class="probe-apps-head">
           <h3 class="probe-apps-title" id="probe-apps-title">本机 JVM 目录</h3>
-          <span class="probe-apps-count mono" id="probe-apps-count" hidden></span>
+          <span class="probe-apps-count mono tabular" id="probe-apps-count" hidden></span>
         </div>
-        <p class="hint" id="probe-apps-hint">来自心跳 <code>apps[]</code>；网关侧可用 <code>diag.resolve_service</code> 按 name 解析 pid。</p>
+        <p class="hint" id="probe-apps-hint">来自心跳 <code translate="no">apps[]</code>；网关侧可用 <code translate="no">diag.resolve_service</code> 按 name 解析 pid。</p>
         <div class="probe-apps-table-wrap" id="probe-apps-table-wrap" hidden>
           <table class="probe-apps-table">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>PID</th>
-                <th>Main Class</th>
-                <th>Ports</th>
-                <th>Start</th>
+                <th scope="col">Name</th>
+                <th scope="col">PID</th>
+                <th scope="col">Main Class</th>
+                <th scope="col">Ports</th>
+                <th scope="col">Start</th>
               </tr>
             </thead>
             <tbody id="probe-apps-tbody"></tbody>
@@ -199,11 +201,11 @@
         </div>
         <p class="probe-apps-empty" id="probe-apps-empty" hidden>暂无上报 JVM（等待下一次心跳，或探针未启用进程扫描）</p>
       </section>
-      <pre class="mcp-snippet mono" id="probe-mcp-snippet" tabindex="0">{}</pre>
+      <pre class="mcp-snippet mono" id="probe-mcp-snippet" tabindex="0" translate="no">{}</pre>
       <div class="modal-actions">
         <button type="button" class="btn ghost btn-compact" id="probe-mcp-copy-url">复制 URL</button>
         <button type="button" class="btn primary btn-compact" id="probe-mcp-copy-json">复制完整 JSON</button>
-        <span class="copy-toast" id="probe-mcp-copy-toast" hidden role="status"></span>
+        <span class="copy-toast" id="probe-mcp-copy-toast" hidden role="status" aria-live="polite"></span>
       </div>
       <p class="hint mcp-token-hint" id="probe-mcp-token-hint" hidden></p>
     </div>

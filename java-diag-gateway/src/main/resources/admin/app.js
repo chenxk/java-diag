@@ -12,6 +12,7 @@
   const consolePanel = document.getElementById("panel-console");
   const formLogin = document.getElementById("form-login");
   const loginError = document.getElementById("login-error");
+  const btnLogin = document.getElementById("btn-login");
   const btnLogout = document.getElementById("btn-logout");
   const rows = document.getElementById("instance-rows");
   const emptyState = document.getElementById("empty-state");
@@ -30,6 +31,7 @@
   const pageSub = document.getElementById("page-sub");
   const btnSidebarToggle = document.getElementById("btn-sidebar-toggle");
   const sidebarBackdrop = document.getElementById("sidebar-backdrop");
+  const tabButtons = [tabMcp, tabInstances];
 
   const TAB_META = {
     [TAB_MCP]: { title: "MCP 配置", sub: "Cursor MCP 接入片段" },
@@ -52,12 +54,38 @@
   let lastInstanceList = [];
   const filterService = document.getElementById("filter-service");
   const filterApp = document.getElementById("filter-app");
-  const probeAppsBlock = document.getElementById("probe-apps-block");
+  const probeAppsTbody = document.getElementById("probe-apps-tbody");
   const probeAppsCount = document.getElementById("probe-apps-count");
   const probeAppsTableWrap = document.getElementById("probe-apps-table-wrap");
-  const probeAppsTbody = document.getElementById("probe-apps-tbody");
   const probeAppsEmpty = document.getElementById("probe-apps-empty");
   let filterDebounce = null;
+  let syncingUrl = false;
+  let relativeTimeFmt = null;
+  let dateTimeFmt = null;
+  let timeFmt = null;
+
+  try {
+    relativeTimeFmt = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+    dateTimeFmt = new Intl.DateTimeFormat(undefined, {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    });
+    timeFmt = new Intl.DateTimeFormat(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    });
+  } catch {
+    relativeTimeFmt = null;
+    dateTimeFmt = null;
+    timeFmt = null;
+  }
 
   function setSidebarOpen(open) {
     if (!appShell) return;
@@ -77,6 +105,14 @@
     if (appShell) appShell.hidden = !show;
     if (consolePanel) consolePanel.hidden = !show;
     setSidebarOpen(false);
+  }
+
+  function setLoginBusy(busy) {
+    if (!btnLogin) return;
+    btnLogin.disabled = busy;
+    btnLogin.setAttribute("aria-busy", busy ? "true" : "false");
+    const spinner = btnLogin.querySelector(".btn-spinner");
+    if (spinner) spinner.hidden = !busy;
   }
 
   function mcpUrl() {
@@ -147,7 +183,40 @@
     return JSON.stringify(buildProbeMcpJsonDocument(inst), null, 2);
   }
 
-  function switchTab(tabId) {
+  function readUrlState() {
+    const params = new URLSearchParams(location.search);
+    const hash = (location.hash || "").replace(/^#/, "");
+    const hashParams = new URLSearchParams(hash.includes("=") ? hash : "");
+    const tabRaw = params.get("tab") || hashParams.get("tab") || (hash === TAB_INSTANCES || hash === TAB_MCP ? hash : "");
+    const tab = tabRaw === TAB_INSTANCES ? TAB_INSTANCES : TAB_MCP;
+    return {
+      tab,
+      service: params.get("service") || hashParams.get("service") || "",
+      app: params.get("app") || hashParams.get("app") || "",
+    };
+  }
+
+  function writeUrlState(opts) {
+    if (syncingUrl) return;
+    const state = readUrlState();
+    const next = {
+      tab: opts.tab != null ? opts.tab : state.tab,
+      service: opts.service != null ? opts.service : (filterService ? filterService.value.trim() : state.service),
+      app: opts.app != null ? opts.app : (filterApp ? filterApp.value.trim() : state.app),
+    };
+    const params = new URLSearchParams();
+    if (next.tab && next.tab !== TAB_MCP) params.set("tab", next.tab);
+    if (next.service) params.set("service", next.service);
+    if (next.app) params.set("app", next.app);
+    const qs = params.toString();
+    const clean = location.pathname + (qs ? "?" + qs : "");
+    if (clean !== location.pathname + location.search) {
+      history.replaceState(null, "", clean);
+    }
+  }
+
+  function switchTab(tabId, opts) {
+    const options = opts || {};
     const isMcp = tabId === TAB_MCP;
     tabMcp.setAttribute("aria-selected", isMcp ? "true" : "false");
     tabMcp.tabIndex = isMcp ? 0 : -1;
@@ -159,6 +228,10 @@
     if (pageTitle) pageTitle.textContent = meta.title;
     if (pageSub) pageSub.textContent = meta.sub;
     setSidebarOpen(false);
+    if (!options.skipUrl) writeUrlState({ tab: tabId });
+    if (options.focusTab) {
+      (isMcp ? tabMcp : tabInstances).focus();
+    }
   }
 
   function renderMcpPanel(mcpMeta) {
@@ -241,6 +314,7 @@
     try {
       const d = new Date(Number(epochMs));
       if (Number.isNaN(d.getTime())) return "—";
+      if (dateTimeFmt) return dateTimeFmt.format(d);
       return d.toISOString().replace("T", " ").slice(0, 19) + "Z";
     } catch {
       return "—";
@@ -275,10 +349,10 @@
       const main = app.mainClass || "—";
       tr.innerHTML = `
         <td class="mono probe-apps-name" title="${escapeHtml(name)}">${escapeHtml(name)}</td>
-        <td class="mono">${escapeHtml(pid)}</td>
+        <td class="mono cell-num" title="${escapeHtml(pid)}">${escapeHtml(pid)}</td>
         <td class="mono probe-apps-main" title="${escapeHtml(main)}">${escapeHtml(main)}</td>
-        <td class="mono">${escapeHtml(formatAppPorts(app.ports))}</td>
-        <td class="mono">${escapeHtml(formatAppStart(app.startTimeEpochMs))}</td>
+        <td class="mono cell-num">${escapeHtml(formatAppPorts(app.ports))}</td>
+        <td class="mono cell-num">${escapeHtml(formatAppStart(app.startTimeEpochMs))}</td>
       `;
       probeAppsTbody.appendChild(tr);
     }
@@ -322,25 +396,33 @@
     return data.authenticated === true;
   }
 
+  function cellTruncate(text, className) {
+    const value = text || "—";
+    const cls = className ? ' class="' + className + '"' : "";
+    return `<td${cls} title="${escapeHtml(value)}"><span class="truncate mono">${escapeHtml(value)}</span></td>`;
+  }
+
   function renderInstanceRow(inst) {
     const tr = document.createElement("tr");
     tr.className = "instance-row";
     tr.tabIndex = 0;
     tr.dataset.instanceId = inst.instanceId || "";
     const healthyRow = inst.status === "HEALTHY";
+    const host = (inst.host || "") + (inst.port ? ":" + inst.port : "");
+    const statusLabel = inst.status || "?";
     tr.innerHTML = `
-      <td><span class="status-pill ${healthyRow ? "healthy" : "unhealthy"}">
-        <span class="dot"></span>${escapeHtml(inst.status || "?")}
+      <td><span class="status-ind ${healthyRow ? "healthy" : "unhealthy"}">
+        <span class="dot" aria-hidden="true"></span>${escapeHtml(statusLabel)}
       </span></td>
-      <td class="mono">${escapeHtml(inst.serviceName || "—")}</td>
-      <td class="mono">${escapeHtml(inst.instanceId || "—")}</td>
-      <td class="mono">${escapeHtml((inst.host || "") + (inst.port ? ":" + inst.port : ""))}</td>
-      <td class="mono">${escapeHtml(inst.mcpBaseUrl || "—")}</td>
+      ${cellTruncate(inst.serviceName || "—", "mono")}
+      ${cellTruncate(inst.instanceId || "—", "mono")}
+      ${cellTruncate(host || "—", "mono")}
+      ${cellTruncate(inst.mcpBaseUrl || "—", "mono")}
       <td>${renderTags(inst.tags)}</td>
-      <td class="mono">${renderAppsCount(inst.apps)}</td>
-      <td class="mono">${escapeHtml(inst.version || "—")}</td>
-      <td class="mono">${escapeHtml(formatHeartbeat(inst.lastHeartbeat))}</td>
-      <td><button type="button" class="btn ghost btn-mcp" data-action="mcp">MCP</button></td>
+      <td class="mono cell-num">${escapeHtml(renderAppsCount(inst.apps))}</td>
+      <td class="mono truncate" title="${escapeHtml(inst.version || "—")}">${escapeHtml(inst.version || "—")}</td>
+      <td class="mono cell-num" title="${escapeHtml(formatHeartbeatAbsolute(inst.lastHeartbeat))}">${escapeHtml(formatHeartbeat(inst.lastHeartbeat))}</td>
+      <td><button type="button" class="btn ghost btn-mcp" data-action="mcp">查看 MCP</button></td>
     `;
     tr.addEventListener("click", (e) => {
       if (e.target.closest("[data-action='mcp']")) return;
@@ -415,8 +497,8 @@
       }
     }
     const now = new Date();
-    refreshMeta.textContent = "刷新于 " + now.toLocaleTimeString();
-    footClock.textContent = now.toISOString().replace("T", " ").slice(0, 19) + "Z";
+    refreshMeta.textContent = "刷新于 " + (timeFmt ? timeFmt.format(now) : now.toLocaleTimeString());
+    footClock.textContent = dateTimeFmt ? dateTimeFmt.format(now) : now.toISOString().replace("T", " ").slice(0, 19) + "Z";
   }
 
   function renderAppsCount(apps) {
@@ -431,19 +513,40 @@
     return (
       '<span class="tags">' +
       entries
-        .map(([k, v]) => `<span class="tag">${escapeHtml(k)}=${escapeHtml(String(v))}</span>`)
+        .map(([k, v]) => {
+          const label = k + "=" + String(v);
+          return `<span class="tag" title="${escapeHtml(label)}" translate="no">${escapeHtml(label)}</span>`;
+        })
         .join("") +
       "</span>"
     );
+  }
+
+  function formatHeartbeatAbsolute(iso) {
+    if (!iso) return "—";
+    try {
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return iso;
+      return dateTimeFmt ? dateTimeFmt.format(d) : iso;
+    } catch {
+      return iso;
+    }
   }
 
   function formatHeartbeat(iso) {
     if (!iso) return "—";
     try {
       const d = new Date(iso);
-      const sec = Math.round((Date.now() - d.getTime()) / 1000);
-      if (sec < 90) return sec + "s ago";
-      return iso.replace("T", " ").replace(/\.\d+Z$/, "Z");
+      if (Number.isNaN(d.getTime())) return iso;
+      const diffSec = Math.round((d.getTime() - Date.now()) / 1000);
+      const abs = Math.abs(diffSec);
+      if (relativeTimeFmt && abs < 90) {
+        return relativeTimeFmt.format(diffSec, "second");
+      }
+      if (relativeTimeFmt && abs < 3600 * 36) {
+        return relativeTimeFmt.format(Math.round(diffSec / 60), "minute");
+      }
+      return dateTimeFmt ? dateTimeFmt.format(d) : iso.replace("T", " ").replace(/\.\d+Z$/, "Z");
     } catch {
       return iso;
     }
@@ -467,30 +570,63 @@
     timer = null;
   }
 
+  function focusFirstLoginError() {
+    const user = formLogin.querySelector('[name="username"]');
+    const pass = formLogin.querySelector('[name="password"]');
+    if (user && !user.value.trim()) {
+      user.focus();
+      return;
+    }
+    if (pass) pass.focus();
+  }
+
+  function loginErrorMessage(data, res) {
+    const raw = (data && data.error) || "";
+    if (res.status === 401 || /invalid|unauthorized|密码|账号|credential/i.test(raw)) {
+      return (raw || "用户名或密码不正确") + "。请核对后重试，或查看文档中的默认账号。";
+    }
+    if (res.status >= 500) {
+      return (raw || "服务暂时不可用") + "。请稍后重试。";
+    }
+    return (raw || "登录失败") + "。请检查网络后重试。";
+  }
+
   formLogin.addEventListener("submit", async (e) => {
     e.preventDefault();
     loginError.hidden = true;
+    loginError.textContent = "";
+    setLoginBusy(true);
     const fd = new FormData(formLogin);
     const body = JSON.stringify({
       username: fd.get("username"),
       password: fd.get("password"),
     });
-    const res = await api("/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body,
-    });
-    const data = await res.json();
-    if (!res.ok || !data.ok) {
-      loginError.textContent = data.error || "登录失败";
+    try {
+      const res = await api("/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        loginError.textContent = loginErrorMessage(data, res);
+        loginError.hidden = false;
+        focusFirstLoginError();
+        return;
+      }
+      showConsole(true);
+      const state = readUrlState();
+      switchTab(state.tab || TAB_MCP);
+      await loadSession();
+      await refreshInstances();
+      startTimer();
+    } catch {
+      loginError.textContent = "无法连接网关。请确认服务已启动且地址正确后重试。";
       loginError.hidden = false;
-      return;
+      focusFirstLoginError();
+    } finally {
+      setLoginBusy(false);
     }
-    showConsole(true);
-    switchTab(TAB_MCP);
-    await loadSession();
-    await refreshInstances();
-    startTimer();
   });
 
   btnCopyUrl.addEventListener("click", () => copyText(mcpUrl()));
@@ -508,19 +644,38 @@
   });
 
   document.addEventListener("keydown", (e) => {
-    if (e.key !== "Escape") return;
-    if (!probeModal.hidden) {
-      closeProbeModal();
+    if (e.key === "Escape") {
+      if (!probeModal.hidden) {
+        closeProbeModal();
+        return;
+      }
+      if (appShell && appShell.classList.contains("sidebar-open")) {
+        setSidebarOpen(false);
+      }
       return;
     }
-    if (appShell && appShell.classList.contains("sidebar-open")) {
-      setSidebarOpen(false);
+
+    const inTablist = e.target && e.target.getAttribute && e.target.getAttribute("role") === "tab";
+    if (!inTablist) return;
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "ArrowLeft" && e.key !== "ArrowRight" && e.key !== "Home" && e.key !== "End") {
+      return;
     }
+    e.preventDefault();
+    const idx = tabButtons.indexOf(e.target);
+    if (idx < 0) return;
+    let next = idx;
+    if (e.key === "ArrowDown" || e.key === "ArrowRight") next = (idx + 1) % tabButtons.length;
+    if (e.key === "ArrowUp" || e.key === "ArrowLeft") next = (idx - 1 + tabButtons.length) % tabButtons.length;
+    if (e.key === "Home") next = 0;
+    if (e.key === "End") next = tabButtons.length - 1;
+    const tabId = tabButtons[next].dataset.tab;
+    switchTab(tabId, { focusTab: true });
   });
 
   function scheduleFilterRefresh() {
     if (filterDebounce) clearTimeout(filterDebounce);
     filterDebounce = setTimeout(() => {
+      writeUrlState({});
       if (!consolePanel.hidden) refreshInstances();
     }, 350);
   }
@@ -548,8 +703,24 @@
     showConsole(false);
   });
 
+  window.addEventListener("popstate", () => {
+    syncingUrl = true;
+    const state = readUrlState();
+    if (filterService) filterService.value = state.service;
+    if (filterApp) filterApp.value = state.app;
+    switchTab(state.tab, { skipUrl: true });
+    syncingUrl = false;
+    if (!consolePanel.hidden) refreshInstances();
+  });
+
   (async function init() {
-    switchTab(TAB_MCP);
+    const state = readUrlState();
+    syncingUrl = true;
+    if (filterService) filterService.value = state.service;
+    if (filterApp) filterApp.value = state.app;
+    switchTab(state.tab || TAB_MCP, { skipUrl: true });
+    syncingUrl = false;
+    writeUrlState({ tab: state.tab || TAB_MCP, service: state.service, app: state.app });
     if (await loadSession()) {
       showConsole(true);
       await refreshInstances();
