@@ -20,6 +20,7 @@ For [Releases](https://github.com/chenxk/java-diag/releases/latest) users: downl
 
 The extracted root matches repo [`deploy/`](deploy/): `java-diag-gateway/`, `java-diag-probe/`, README, Dockerfiles, etc.
 
+![deploy_dir.png](pics/deploy_dir.png)
 ### 2. Minimal config (Gateway + Probe)
 
 Edit both properties files (replace every `CHANGE_ME_*`). Example strong placeholders — **use your own**:

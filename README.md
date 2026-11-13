@@ -20,6 +20,8 @@
 
 解压后根目录与仓库 [`deploy/`](deploy/) 一致，至少包含 `java-diag-gateway/`、`java-diag-probe/`、README、Dockerfile 等。
 
+![deploy_dir.png](pics/deploy_dir.png)
+
 ### 2. 改最少配置（Gateway + Probe）
 
 分别编辑两个 properties（勿再使用 `CHANGE_ME_*`）。示例自拟强随机值，**请换成你自己的**：
