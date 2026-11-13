@@ -1,5 +1,7 @@
 # Java Diag — Kubernetes 部署说明（草稿）
 
+[English](README_EN.md)
+
 本目录给出 **Gateway + 业务 Sidecar 探针** 的最小可跑清单。  
 java-diag **不用为 K8s 改诊断逻辑**；关键是把探针部署到「能看见业务 JVM、能读到日志」的位置。
 
@@ -18,7 +20,7 @@ java-diag **不用为 K8s 改诊断逻辑**；关键是把探针部署到「能�
 
 ```
 Agent / IDE
-    │  MCP SSE + Bearer
+    │  HTTP MCP /mcp + Bearer
     ▼
 java-diag-gateway  (:8787)
     │  按心跳注册表选探针（多副本返回 candidates）
@@ -67,10 +69,11 @@ kubectl -n java-diag logs deploy/demo-order-service -c java-diag --tail=50
 |----|------|
 | `shareProcessNamespace: true` | Sidecar 与业务共享 PID，才能 `jps` / `jcmd` |
 | 共享日志 Volume + `JAVA_DIAG_ALLOWED_LOG_DIRS` | 才能 `diag.log_paths` / `grep_log` / `cluster_errors` |
-| `JAVA_DIAG_REGISTER_URL` | 指向 Gateway，例如 `http://java-diag-gateway.java-diag.svc.cluster.local:8787` |
+| `JAVA_DIAG_REGISTER_URL` | 指向 Gateway 根 URL（勿带 `/mcp`），例如 `http://java-diag-gateway.java-diag.svc.cluster.local:8787` |
+| `JAVA_DIAG_REGISTRY_REGISTER_TOKEN` | 与 Gateway 的 `register.token` **一致**（Secret `register-token`） |
 | `JAVA_DIAG_ADVERTISE_URL` | Gateway 回调地址，示例为 `http://$(POD_IP):8765` |
 | `JAVA_DIAG_SERVICE_NAME` / `JAVA_DIAG_TAGS` / `JAVA_DIAG_APP_NAME_MAP` | 便于按业务名、标签发现实例 |
-| `JAVA_DIAG_AUTH_TOKEN` | 与 Gateway 代理探针时使用的探针 Token 一致 |
+| `JAVA_DIAG_AUTH_TOKEN` | 探针 MCP Bearer（Secret `probe-token`；注册时上报，Gateway 回连探针用；可与 Agent→Gateway 的 `agent-token` 不同） |
 
 若入口脚本不展开 `$(POD_IP)`，可改用启动命令自行拼接 `advertise.url`。
 
@@ -118,7 +121,7 @@ kubectl -n java-diag logs deploy/demo-order-service -c java-diag --tail=50
 确认业务日志目录已挂到 sidecar，且路径在 `JAVA_DIAG_ALLOWED_LOG_DIRS` 白名单内。
 
 **Gateway 上看不到探针 / 心跳过期**  
-核对 `JAVA_DIAG_REGISTER_URL`、`JAVA_DIAG_ADVERTISE_URL`（集群内可达）、网络策略，以及 Gateway 的 heartbeat TTL。
+核对两端 `JAVA_DIAG_REGISTRY_REGISTER_TOKEN`（`register.token`）一致、`JAVA_DIAG_REGISTER_URL` / `JAVA_DIAG_ADVERTISE_URL`（集群内可达）、网络策略，以及 Gateway 的 heartbeat TTL。
 
 **`name` / `mainClass` 显示成某个依赖 jar**  
 `-classpath ... MainClass` 启动时，请使用已包含 classpath 解析修复的探针版本；也可用 `JAVA_DIAG_APP_NAME_MAP` 映射成业务名。
