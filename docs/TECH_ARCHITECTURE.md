@@ -141,7 +141,7 @@ java-diag/
 | 语言 | Java 17+ | `maven.compiler.release=17` |
 | MCP | 官方 MCP Java SDK（`io.modelcontextprotocol.sdk`） | 探针 + 网关共用 |
 | HTTP | Jetty 12（EE10 Servlet） | 探针 HTTP 模式与 Gateway |
-| 传输 | 探针：`http`（默认）或 `stdio`；Gateway：**仅 HTTP/SSE** | |
+| 传输 | 探针：`http`（默认）或 `stdio`；Gateway：HTTP（推荐 `/mcp` Streamable，兼容 `/sse`） | |
 | 序列化 | Jackson（经各模块 Json 封装） | 工具出入参结构化 |
 | 注册 | Gateway 进程内 `InMemoryRegistry` | 无外置 Registry 服务 |
 | 构建 | Maven 多模块 + shade | CI：JDK 17 / 21 |
@@ -285,14 +285,14 @@ Gateway 转发探针时可带上心跳上报的 `probeToken`。
 
 ### 9.1 单机
 
-- HTTP：`java -jar java-diag-probe.jar --config ...`（Agent 配 `http://host:8765/sse`）
+- HTTP：`java -jar java-diag-probe.jar --config ...`（Agent 配 `http://host:8765/mcp`；仍兼容 `/sse`）
 - 或 `--stdio` 供本地 IDE 拉起
 
 ### 9.2 集群
 
 1. 启动 Gateway（`:8787`）
 2. 每机 / 每 Pod 启动探针：`--register-url` + `--advertise-url`（集群内 Gateway 可达）
-3. Agent 只配 Gateway SSE + Agent Bearer
+3. Agent 只配 Gateway `/mcp` + Agent Bearer（仍兼容 `/sse`）
 4. K8s：见 [`deploy/k8s/`](../deploy/k8s/README.md)（Sidecar + `shareProcessNamespace` 推荐）
 
 Docker 草稿：`deploy/Dockerfile.probe` / `Dockerfile.gateway`。

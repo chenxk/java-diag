@@ -82,7 +82,7 @@ kubectl -n java-diag logs deploy/demo-order-service -c java-diag --tail=50
 {
   "mcpServers": {
     "java-diag-cluster": {
-      "url": "http://<gateway-host>:8787/sse",
+      "url": "http://<gateway-host>:8787/mcp",
       "headers": { "Authorization": "Bearer YOUR_AGENT_TOKEN" }
     }
   }
