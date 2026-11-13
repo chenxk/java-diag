@@ -10,6 +10,72 @@
 - **License**：[MIT](LICENSE)（探针与 Gateway 均开源）
 - **安全说明**：[SECURITY.md](SECURITY.md) · **贡献**：[CONTRIBUTING.md](CONTRIBUTING.md)
 
+## Quick Start（GitHub Release）
+
+点击下载 [Releases](https://github.com/chenxk/java-diag/releases/latest) 。需要本机 **JDK 17+**。以下以 **Linux** 为例；Windows 用同目录下的 `start.cmd` / `start.ps1`。
+
+### 1. 下载并解压
+
+- 最新版：[https://github.com/chenxk/java-diag/releases/latest](https://github.com/chenxk/java-diag/releases/latest)
+
+解压后根目录与仓库 [`deploy/`](deploy/) 一致，至少包含 `java-diag-gateway/`、`java-diag-probe/`、README、Dockerfile 等。
+
+### 2. 改最少配置（Gateway + Probe）
+
+分别编辑两个 properties（勿再使用 `CHANGE_ME_*`）。示例自拟强随机值，**请换成你自己的**：
+
+| 文件 | 键 | 示例值 | 说明 |
+|------|-----|--------|------|
+| `java-diag-gateway/java-diag-gateway.properties` | `auth.token` | `jd_ag_K9mP2xQ7vR4nW8sT` | Agent → Gateway 的 MCP Bearer |
+| 同上 | `register.token` | `jd_reg_H3cF6yL1bN5dZ0uE` | `/registry/*`；**须与探针相同** |
+| 同上 | `admin.password` | `jd_adm_Xp4Qw8Rm2Vn7Ks1Y` | 浏览器 Admin 密码（建议改） |
+| `java-diag-probe/java-diag-probe.properties` | `auth.token` | `jd_pr_T2wE5rY8uI0oP3aS` | Gateway/直连调用探针 MCP 的 Bearer（可与网关 `auth.token` 不同） |
+| 同上 | `register.token` | `jd_reg_H3cF6yL1bN5dZ0uE` | **与网关 `register.token` 一致** |
+| 同上 | `register.url` | `http://10.0.1.10:8787` | Gateway 根 URL（不要带 `/sse`）；本机可 `http://127.0.0.1:8787` |
+
+完整配置见 [docs/CONFIGURATION.md](docs/CONFIGURATION.md)。
+
+### 3. 启动（先 Gateway，后 Probe）
+
+```bash
+cd java-diag-gateway
+chmod +x start.sh && ./start.sh start
+
+cd ../java-diag-probe
+chmod +x start.sh && ./start.sh start
+```
+
+### 4. 在 Agent 里配 MCP（连 Gateway）
+
+URL 对齐默认端口 `8787`；Bearer 填网关的 `auth.token`。
+
+**Cursor**：项目根 `.cursor/mcp.json`，或 Cursor Settings → MCP。
+
+```json
+{
+  "mcpServers": {
+    "java-diag": {
+      "url": "http://127.0.0.1:8787/mcp",
+      "headers": { "Authorization": "Bearer jd_ag_K9mP2xQ7vR4nW8sT" }
+    }
+  }
+}
+```
+
+**Claude Desktop**：编辑配置 JSON（macOS：`~/Library/Application Support/Claude/claude_desktop_config.json`；Windows：`%APPDATA%\Claude\claude_desktop_config.json`；Linux：`~/.config/Claude/claude_desktop_config.json`），写入同样的 `mcpServers` 段后重启 Claude。
+
+远程部署时把 `127.0.0.1` 换成 Gateway 可达地址。
+
+### 5. 验证
+
+```bash
+curl -s http://127.0.0.1:8787/health
+```
+
+或在 Agent 里调用 `diag.ping`。Admin：`http://<gateway-host>:8787/admin/`。
+
+源码构建、架构与全量说明见下文与 [`docs/`](docs/)。
+
 ## 实现原理
 
 **一句话**：诊断能力在探针本机执行；Gateway 只做注册发现与 MCP 工具代理，**自己不跑 jcmd、不读业务日志**。

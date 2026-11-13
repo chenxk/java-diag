@@ -10,6 +10,72 @@ Read-oriented, auditable MCP for diagnosing Java processes in production.
 - **License**: [MIT](LICENSE) (probe and Gateway are both open source)
 - **Security**: [SECURITY.md](SECURITY.md) · **Contributing**: [CONTRIBUTING.md](CONTRIBUTING.md)
 
+## Quick Start (GitHub Release — no local build)
+
+For [Releases](https://github.com/chenxk/java-diag/releases/latest) users: download and run; no `mvn package`. Requires **JDK 17+**. Steps below are **Linux**-oriented; on Windows use `start.cmd` / `start.ps1` in the same directories.
+
+### 1. Download and extract
+
+- Latest: [https://github.com/chenxk/java-diag/releases/latest](https://github.com/chenxk/java-diag/releases/latest)
+
+The extracted root matches repo [`deploy/`](deploy/): `java-diag-gateway/`, `java-diag-probe/`, README, Dockerfiles, etc.
+
+### 2. Minimal config (Gateway + Probe)
+
+Edit both properties files (replace every `CHANGE_ME_*`). Example strong placeholders — **use your own**:
+
+| File | Key | Example | Notes |
+|------|-----|---------|-------|
+| `java-diag-gateway/java-diag-gateway.properties` | `auth.token` | `jd_ag_K9mP2xQ7vR4nW8sT` | Agent → Gateway MCP Bearer |
+| same | `register.token` | `jd_reg_H3cF6yL1bN5dZ0uE` | `/registry/*`; **must match probe** |
+| same | `admin.password` | `jd_adm_Xp4Qw8Rm2Vn7Ks1Y` | Browser Admin password (change it) |
+| `java-diag-probe/java-diag-probe.properties` | `auth.token` | `jd_pr_T2wE5rY8uI0oP3aS` | Bearer for Gateway/direct probe MCP (may differ from gateway `auth.token`) |
+| same | `register.token` | `jd_reg_H3cF6yL1bN5dZ0uE` | **same as gateway `register.token`** |
+| same | `register.url` | `http://10.0.1.10:8787` | Gateway root URL (no `/sse`); localhost: `http://127.0.0.1:8787` |
+
+Full reference: [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
+
+### 3. Start (Gateway first, then Probe)
+
+```bash
+cd java-diag-gateway
+chmod +x start.sh && ./start.sh start
+
+cd ../java-diag-probe
+chmod +x start.sh && ./start.sh start
+```
+
+### 4. Configure MCP in your Agent (Gateway)
+
+Default port `8787`; Bearer = gateway `auth.token`.
+
+**Cursor**: project `.cursor/mcp.json`, or Cursor Settings → MCP.
+
+```json
+{
+  "mcpServers": {
+    "java-diag": {
+      "url": "http://127.0.0.1:8787/mcp",
+      "headers": { "Authorization": "Bearer jd_ag_K9mP2xQ7vR4nW8sT" }
+    }
+  }
+}
+```
+
+**Claude Desktop**: edit the config JSON (macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`; Windows: `%APPDATA%\Claude\claude_desktop_config.json`; Linux: `~/.config/Claude/claude_desktop_config.json`), add the same `mcpServers` block, then restart Claude.
+
+Use the Gateway’s reachable host instead of `127.0.0.1` when remote.
+
+### 5. Verify
+
+```bash
+curl -s http://127.0.0.1:8787/health
+```
+
+Or call `diag.ping` from the Agent. Admin: `http://<gateway-host>:8787/admin/`.
+
+Source build, architecture, and full docs: sections below and [`docs/`](docs/).
+
 ## How it works
 
 **In one line**: diagnostics run on the probe host; the Gateway only does discovery/registry and MCP tool proxying — **it does not run jcmd or read application logs itself**.
