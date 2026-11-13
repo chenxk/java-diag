@@ -99,8 +99,8 @@ chmod +x start.sh && ./start.sh start
 
 Optional Admin: open `http://<gateway-host>:8787/admin/`, sign in with `admin.user` / `admin.password`. Sidebar **探针实例** lists registered probes; **MCP 配置** or a row’s **查看 MCP** can **复制 URL** / **复制完整 JSON**.
 
-![mcp_config.png](pics/mcp_config.png)
-![probe_list.png](pics/probe_list.png)
+![mcp_config_en.png](pics/mcp_config_en.png)
+![probe_list_en.png](pics/probe_list_en.png)
 
 #### 3. Configure MCP in your Agent (Gateway only)
 
