@@ -13,13 +13,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DiagConfigTransportTest {
 
     private static Map<String, String> requiredTokens() {
-        return Map.of(
-                DiagConfig.ENV_AUTH_TOKEN, "test-auth",
-                DiagConfig.ENV_REGISTRY_REGISTER_TOKEN, "test-reg");
+        return Map.of(DiagConfig.ENV_AUTH_TOKEN, "test-auth");
     }
 
     private static Map<String, String> withTokens(Map<String, String> extra) {
         Map<String, String> env = new HashMap<>(requiredTokens());
+        env.putAll(extra);
+        return env;
+    }
+
+    private static Map<String, String> withRegisterTokens(Map<String, String> extra) {
+        Map<String, String> env = withTokens(Map.of(DiagConfig.ENV_REGISTRY_REGISTER_TOKEN, "test-reg"));
         env.putAll(extra);
         return env;
     }
@@ -31,24 +35,24 @@ class DiagConfigTransportTest {
         assertEquals("0.0.0.0", config.httpHost());
         assertEquals(8765, config.httpPort());
         assertEquals("test-auth", config.authToken().orElseThrow());
-        assertEquals("test-reg", config.registryRegisterToken().orElseThrow());
+        assertTrue(config.registryRegisterToken().isEmpty());
+        assertTrue(config.registerUrl().isEmpty());
     }
 
     @Test
     void rejectsMissingAuthToken() {
         IllegalArgumentException ex = assertThrows(
                 IllegalArgumentException.class,
-                () -> DiagConfig.fromEnvironment(
-                        Map.of(DiagConfig.ENV_REGISTRY_REGISTER_TOKEN, "test-reg"), List.of()));
+                () -> DiagConfig.fromEnvironment(Map.of(), List.of()));
         assertTrue(ex.getMessage().contains("auth.token"));
     }
 
     @Test
-    void rejectsMissingRegisterToken() {
-        IllegalArgumentException ex = assertThrows(
-                IllegalArgumentException.class,
-                () -> DiagConfig.fromEnvironment(Map.of(DiagConfig.ENV_AUTH_TOKEN, "test-auth"), List.of()));
-        assertTrue(ex.getMessage().contains("register.token"));
+    void allowsMissingRegisterTokenWhenNoRegisterUrl() {
+        DiagConfig config = DiagConfig.fromEnvironment(
+                Map.of(DiagConfig.ENV_AUTH_TOKEN, "test-auth"), List.of());
+        assertTrue(config.registerUrl().isEmpty());
+        assertTrue(config.registryRegisterToken().isEmpty());
     }
 
     @Test
@@ -70,28 +74,25 @@ class DiagConfigTransportTest {
     }
 
     @Test
-    void cliTokenOverridesEnv() {
+    void cliAuthTokenOverridesEnv() {
         DiagConfig config = DiagConfig.fromEnvironment(
                 withTokens(Map.of(DiagConfig.ENV_AUTH_TOKEN, "from-env")),
-                List.of("--token", "from-cli"));
+                List.of("--auth-token", "from-cli"));
         assertEquals("from-cli", config.authToken().orElseThrow());
     }
 
     @Test
-    void authTokenAliasWorks() {
-        DiagConfig config = DiagConfig.fromEnvironment(
-                Map.of(DiagConfig.ENV_REGISTRY_REGISTER_TOKEN, "test-reg"),
-                List.of("--auth-token", "alias-secret"));
+    void authTokenFlagWorks() {
+        DiagConfig config = DiagConfig.fromEnvironment(Map.of(), List.of("--auth-token", "alias-secret"));
         assertEquals("alias-secret", config.authToken().orElseThrow());
     }
 
     @Test
-    void tokenFlagRequiresValue() {
+    void authTokenFlagRequiresValue() {
         IllegalArgumentException ex = assertThrows(
                 IllegalArgumentException.class,
-                () -> DiagConfig.fromEnvironment(
-                        Map.of(DiagConfig.ENV_REGISTRY_REGISTER_TOKEN, "test-reg"), List.of("--token")));
-        assertTrue(ex.getMessage().contains("--token"));
+                () -> DiagConfig.fromEnvironment(Map.of(), List.of("--auth-token")));
+        assertTrue(ex.getMessage().contains("--auth-token"));
     }
 
     @Test
@@ -115,14 +116,24 @@ class DiagConfigTransportTest {
     @Test
     void cliRegisterTokenOverridesEnv() {
         DiagConfig config = DiagConfig.fromEnvironment(
-                withTokens(Map.of(DiagConfig.ENV_REGISTRY_REGISTER_TOKEN, "from-env")),
-                List.of("--register-token", "from-cli"));
+                withRegisterTokens(Map.of(DiagConfig.ENV_REGISTRY_REGISTER_TOKEN, "from-env")),
+                List.of("--register-token", "from-cli", "--register-url", "http://gateway:8787"));
         assertEquals("from-cli", config.registryRegisterToken().orElseThrow());
     }
 
     @Test
     void parsesRegisterTokenFromEnvWhenCliAbsent() {
-        DiagConfig config = DiagConfig.fromEnvironment(requiredTokens(), List.of());
+        DiagConfig config = DiagConfig.fromEnvironment(
+                withRegisterTokens(Map.of()),
+                List.of("--register-url", "http://gateway:8787"));
+        assertEquals("test-reg", config.registryRegisterToken().orElseThrow());
+    }
+
+    @Test
+    void optionalRegisterTokenIgnoredWhenNoRegisterUrl() {
+        DiagConfig config = DiagConfig.fromEnvironment(
+                withRegisterTokens(Map.of()), List.of());
+        assertTrue(config.registerUrl().isEmpty());
         assertEquals("test-reg", config.registryRegisterToken().orElseThrow());
     }
 
@@ -162,7 +173,7 @@ class DiagConfigTransportTest {
     @Test
     void registerUrlWorksWithoutServiceName() {
         DiagConfig config = DiagConfig.fromEnvironment(
-                requiredTokens(),
+                withRegisterTokens(Map.of()),
                 List.of("--register-url", "http://gateway:8787"));
         assertEquals("http://gateway:8787", config.registerUrl().orElseThrow());
         assertEquals(DiagConfig.primaryIpAddress(), config.serviceName());
@@ -201,7 +212,7 @@ class DiagConfigTransportTest {
     @Test
     void registerUrlWorksWithoutSeparateInstanceId() {
         DiagConfig config = DiagConfig.fromEnvironment(
-                requiredTokens(),
+                withRegisterTokens(Map.of()),
                 List.of(
                         "--register-url", "http://gateway:8787",
                         "--advertise-url", "http://10.0.1.11:8765"));

@@ -49,7 +49,7 @@ dump.cooldown.ms=10000
 service.name=
 # Gateway 根 URL，例如 http://gateway-host:8787
 register.url=
-# 调用 Gateway /registry/* 的 Bearer（必填）；须与网关 register.token 一致
+# 调用 Gateway /registry/* 的 Bearer；仅当 register.url 非空时必填，须与网关 register.token 一致
 register.token=CHANGE_ME_REGISTER_TOKEN
 # 对外公布的 MCP base URL；空则 instanceId=advertise主机:http.port
 advertise.url=

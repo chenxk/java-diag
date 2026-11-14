@@ -73,15 +73,17 @@ class BundledPropertiesExampleTest {
                 .collect(Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue().toString()));
         assertFalse(
                 fromExample.get(DiagConfig.PROP_AUTH_TOKEN).isBlank(), "auth.token must be non-empty in example");
-        assertFalse(
-                fromExample.get(DiagConfig.PROP_REGISTER_TOKEN).isBlank(),
-                "register.token must be non-empty in example");
+        // register.url empty in example → register.token optional; sample value may still be present
+        String exampleRegisterUrl = fromExample.getOrDefault(DiagConfig.PROP_REGISTER_URL, "");
+        if (!exampleRegisterUrl.isBlank()) {
+            assertFalse(
+                    fromExample.get(DiagConfig.PROP_REGISTER_TOKEN).isBlank(),
+                    "register.token must be non-empty when register.url is set in example");
+        }
 
         DiagConfig fromFile = DiagConfig.fromEnvironment(Map.of(), List.of(), fromExample);
         DiagConfig builtin = DiagConfig.fromEnvironment(
-                Map.of(
-                        DiagConfig.ENV_AUTH_TOKEN, "test-auth",
-                        DiagConfig.ENV_REGISTRY_REGISTER_TOKEN, "test-reg"),
+                Map.of(DiagConfig.ENV_AUTH_TOKEN, "test-auth"),
                 List.of(),
                 Map.of());
 

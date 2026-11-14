@@ -18,6 +18,10 @@ class DiagConfigPropertiesTest {
     Path tempDir;
 
     private static Map<String, String> requiredTokens() {
+        return Map.of(DiagConfig.ENV_AUTH_TOKEN, "test-auth");
+    }
+
+    private static Map<String, String> clusterTokens() {
         return Map.of(
                 DiagConfig.ENV_AUTH_TOKEN, "test-auth",
                 DiagConfig.ENV_REGISTRY_REGISTER_TOKEN, "test-reg");
@@ -25,9 +29,32 @@ class DiagConfigPropertiesTest {
 
     @Test
     void defaultsWithoutConfigFile() {
+        // Classpath java-diag-probe.properties may supply register.url + register.token sample values.
         DiagConfig config = DiagConfig.load(requiredTokens(), List.of());
         assertEquals(8765, config.httpPort());
         assertEquals(DiagConfig.Transport.HTTP, config.transport());
+        assertEquals("test-auth", config.authToken().orElseThrow());
+    }
+
+    @Test
+    void loadsStandaloneWithoutRegisterToken() throws Exception {
+        Path file = tempDir.resolve("standalone.properties");
+        Files.writeString(file, "http.port=9901\nauth.token=file-secret\n");
+        DiagConfig config = DiagConfig.load(Map.of(), List.of("--config", file.toString()));
+        assertEquals(9901, config.httpPort());
+        assertEquals("file-secret", config.authToken().orElseThrow());
+        assertTrue(config.registerUrl().isEmpty());
+        assertTrue(config.registryRegisterToken().isEmpty());
+    }
+
+    @Test
+    void rejectsMissingRegisterTokenWhenRegisterUrlSet() throws Exception {
+        Path file = tempDir.resolve("cluster.properties");
+        Files.writeString(file, "auth.token=file-secret\nregister.url=http://gateway:8787\n");
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> DiagConfig.load(Map.of(), List.of("--config", file.toString())));
+        assertTrue(ex.getMessage().contains("register.token"));
     }
 
     @Test
@@ -92,7 +119,7 @@ class DiagConfigPropertiesTest {
     @Test
     void fromEnvironmentAcceptsFileSettingsDirectly() {
         DiagConfig config = DiagConfig.fromEnvironment(
-                requiredTokens(),
+                clusterTokens(),
                 List.of(),
                 Map.of(DiagConfig.PROP_REGISTER_URL, "http://gateway:8787"));
         assertEquals("http://gateway:8787", config.registerUrl().orElseThrow());

@@ -114,7 +114,7 @@ public final class JavaDiagProbe {
 
                 Usage:
                   java -jar java-diag-probe.jar --config ./java-diag-probe.properties
-                  java -jar java-diag-probe.jar --config ./probe.properties --port 8765 --token probe-secret
+                  java -jar java-diag-probe.jar --config ./probe.properties --port 8765 --auth-token probe-secret
                   java -jar java-diag-probe.jar --stdio
 
                 CLI (common overrides):
@@ -122,10 +122,10 @@ public final class JavaDiagProbe {
                   --http | --stdio
                   --host <addr>                default 0.0.0.0
                   --port <port>                default 8765
-                  --token / --auth-token <v>   Agent/MCP Bearer (required)
+                  --auth-token <v>             Agent/MCP Bearer (required)
                   --service-name <name>        optional; default primary IP
                   --register-url <gateway>     enables heartbeat
-                  --register-token <value>     registry Bearer (required; match gateway)
+                  --register-token <value>     registry Bearer (required when --register-url set)
                   --advertise-url <url>        public MCP base URL (instanceId = host:port)
 
                 Other CLI (less common; prefer properties file):

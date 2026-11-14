@@ -261,7 +261,7 @@ public final class DiagConfig {
                 case "--http" -> transport = Transport.HTTP;
                 case "--host" -> httpHost = requireValue(cliArgs, ++i, arg);
                 case "--port" -> httpPort = Integer.parseInt(requireValue(cliArgs, ++i, arg));
-                case "--token", "--auth-token" -> authToken = Optional.of(requireValue(cliArgs, ++i, arg));
+                case "--auth-token" -> authToken = Optional.of(requireValue(cliArgs, ++i, arg));
                 case "--service-name" -> serviceNameOpt = Optional.of(requireValue(cliArgs, ++i, arg));
                 case "--register-url" -> registerUrl = Optional.of(requireValue(cliArgs, ++i, arg));
                 case "--register-token" -> registryRegisterToken = Optional.of(requireValue(cliArgs, ++i, arg));
@@ -290,9 +290,12 @@ public final class DiagConfig {
             throw new IllegalArgumentException("http port out of range: " + httpPort);
         }
 
-        authToken = requireConfiguredToken(authToken, PROP_AUTH_TOKEN, ENV_AUTH_TOKEN, "--token / --auth-token");
-        registryRegisterToken = requireConfiguredToken(
-                registryRegisterToken, PROP_REGISTER_TOKEN, ENV_REGISTRY_REGISTER_TOKEN, "--register-token");
+        authToken = requireConfiguredToken(authToken, PROP_AUTH_TOKEN, ENV_AUTH_TOKEN, "--auth-token");
+        // register.token is required only when registering to a Gateway (register.url set).
+        if (registerUrl.isPresent()) {
+            registryRegisterToken = requireConfiguredToken(
+                    registryRegisterToken, PROP_REGISTER_TOKEN, ENV_REGISTRY_REGISTER_TOKEN, "--register-token");
+        }
 
         String serviceName = serviceNameOpt.orElseGet(DiagConfig::primaryIpAddress);
         // Registry identity = advertise host:port (mcpBaseUrl); no separate instance-id env/CLI.
@@ -322,7 +325,7 @@ public final class DiagConfig {
                 appNameMapper);
     }
 
-    /** MCP and Registry tokens are mandatory — empty means unauthenticated access. */
+    /** Non-empty token required — empty means unauthenticated access. */
     static Optional<String> requireConfiguredToken(
             Optional<String> value, String propKey, String envKey, String cliHint) {
         if (value.isEmpty() || value.get().isBlank()) {
