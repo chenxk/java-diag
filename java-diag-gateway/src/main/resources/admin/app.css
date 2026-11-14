@@ -236,8 +236,9 @@ body.is-authed .lang-switch-auth {
 
 .login-brand {
   display: flex;
-  align-items: center;
-  gap: 0.75rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
   margin-bottom: 1.35rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid var(--line);
@@ -250,21 +251,20 @@ body.is-authed .lang-switch-auth {
   text-wrap: balance;
 }
 
-.brand-mark {
-  width: 0.55rem;
-  height: 0.55rem;
-  border-radius: 2px;
-  background: var(--accent);
+.brand-logo {
+  display: block;
+  height: auto;
+  max-width: 100%;
+  object-fit: contain;
   flex-shrink: 0;
 }
 
-.login-brand h1,
-.sidebar-brand h1 {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  text-wrap: balance;
+.brand-logo-login {
+  width: min(180px, 100%);
+}
+
+.brand-logo-sidebar {
+  width: min(140px, 100%);
 }
 
 .sub {
@@ -454,26 +454,9 @@ input:focus-visible {
   align-items: center;
   gap: 0.65rem;
   min-height: var(--topbar-height);
-  padding: 0 1.15rem;
+  padding: 0.55rem 1.15rem;
   border-bottom: 1px solid var(--line);
   flex-shrink: 0;
-}
-
-.sidebar-brand > div {
-  display: flex;
-  flex-direction: column;
-  gap: 0.05rem;
-  min-width: 0;
-}
-
-.sidebar-brand .sub {
-  margin: 0;
-  font-size: 0.72rem;
-}
-
-.sidebar-brand h1 {
-  line-height: 1.2;
-  white-space: nowrap;
 }
 
 .sidebar-nav {

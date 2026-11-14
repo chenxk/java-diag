@@ -6,6 +6,8 @@
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#0f1419">
   <title>Jave Diag · Registry Console</title>
+  <link rel="icon" href="/admin/icon-256.png" type="image/png" sizes="256x256">
+  <link rel="apple-touch-icon" href="/admin/icon-256.png" sizes="256x256">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -30,11 +32,8 @@
 
     <section id="panel-login" class="panel login-panel" hidden>
       <div class="login-brand">
-        <span class="brand-mark" aria-hidden="true"></span>
-        <div>
-          <h1 translate="no">Jave Diag</h1>
-          <p class="sub">Gateway Registry Console</p>
-        </div>
+        <img class="brand-logo brand-logo-login" src="/admin/logo.png" alt="Java Diag" width="180" height="48" decoding="async">
+        <p class="sub">Gateway Registry Console</p>
       </div>
       <h2 data-i18n="login.title">控制台登录</h2>
       <p class="hint" data-i18n="login.hint">与 Agent Bearer / Registry token 独立；默认账号见文档。</p>
@@ -61,10 +60,7 @@
 
     <aside class="sidebar" id="sidebar" data-i18n-aria="nav.sidebar" aria-label="主导航">
       <div class="sidebar-brand">
-        <span class="brand-mark" aria-hidden="true"></span>
-        <div>
-          <h1 translate="no">Jave Diag</h1>
-        </div>
+        <img class="brand-logo brand-logo-sidebar" src="/admin/logo.png" alt="Java Diag" width="140" height="36" decoding="async">
       </div>
 
       <nav class="sidebar-nav" role="tablist" data-i18n-aria="nav.sections" aria-label="控制台分区" aria-orientation="vertical">

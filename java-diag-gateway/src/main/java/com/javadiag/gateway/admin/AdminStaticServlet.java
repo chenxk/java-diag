@@ -52,6 +52,15 @@ public final class AdminStaticServlet extends HttpServlet {
         if (lower.endsWith(".svg")) {
             return "image/svg+xml";
         }
+        if (lower.endsWith(".png")) {
+            return "image/png";
+        }
+        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
+            return "image/jpeg";
+        }
+        if (lower.endsWith(".ico")) {
+            return "image/x-icon";
+        }
         if (lower.endsWith(".woff2")) {
             return "font/woff2";
         }
