@@ -8,7 +8,7 @@
 
   const I18N = {
     zh: {
-      "doc.title": "JAVA-DIAG · Registry Console",
+      "doc.title": "Jave Diag · Registry Console",
       "a11y.skip": "跳到主内容",
       "lang.group": "语言",
       "loading.label": "校验会话…",
@@ -74,7 +74,7 @@
       "modal.probeFallback": "探针",
     },
     en: {
-      "doc.title": "JAVA-DIAG · Registry Console",
+      "doc.title": "Jave Diag · Registry Console",
       "a11y.skip": "Skip to main content",
       "lang.group": "Language",
       "loading.label": "Checking session…",
