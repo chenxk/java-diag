@@ -99,7 +99,7 @@ class GatewayConfigTest {
     void cliTokenOverridesEnv() {
         GatewayConfig config = GatewayConfig.from(
                 withTokens(Map.of()),
-                List.of("--token", "from-cli", "--register-token", "reg-cli"));
+                List.of("--auth-token", "from-cli", "--register-token", "reg-cli"));
         assertEquals("from-cli", config.authToken().orElseThrow());
         assertEquals("reg-cli", config.registryRegisterToken().orElseThrow());
     }

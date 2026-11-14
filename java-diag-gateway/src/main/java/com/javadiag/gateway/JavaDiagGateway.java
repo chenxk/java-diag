@@ -45,13 +45,13 @@ public final class JavaDiagGateway {
 
                 Usage:
                   java -jar java-diag-gateway.jar --config ./java-diag-gateway.properties
-                  java -jar java-diag-gateway.jar --config ./gw.properties --token agent-secret
+                  java -jar java-diag-gateway.jar --config ./gw.properties --auth-token agent-secret
 
                 CLI (common overrides):
                   --config <file>
                   --host <addr>                     default 0.0.0.0
                   --port <port>                     default 8787
-                  --token / --auth-token <value>    Agent Bearer token (required)
+                  --auth-token <value>              Agent Bearer token (required)
                   --register-token <value>          registry API Bearer (required)
                   --admin-user / --admin-password   admin console (prefer properties file)
 

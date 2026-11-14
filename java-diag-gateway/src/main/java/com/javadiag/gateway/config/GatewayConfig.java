@@ -144,7 +144,7 @@ public final class GatewayConfig {
             switch (arg) {
                 case "--host" -> host = requireValue(cliArgs, ++i, arg);
                 case "--port" -> port = Integer.parseInt(requireValue(cliArgs, ++i, arg));
-                case "--token", "--auth-token" -> auth = Optional.of(requireValue(cliArgs, ++i, arg));
+                case "--auth-token" -> auth = Optional.of(requireValue(cliArgs, ++i, arg));
                 case "--heartbeat-ttl-seconds" -> ttl = Long.parseLong(requireValue(cliArgs, ++i, arg));
                 case "--register-token" -> registryToken = Optional.of(requireValue(cliArgs, ++i, arg));
                 case "--admin-user" -> adminUser = requireValue(cliArgs, ++i, arg);
@@ -159,7 +159,7 @@ public final class GatewayConfig {
         if (ttl < 5) {
             throw new IllegalArgumentException("heartbeat TTL must be >= 5 seconds");
         }
-        auth = requireConfiguredToken(auth, PROP_AUTH_TOKEN, ENV_AUTH_TOKEN, "--token / --auth-token");
+        auth = requireConfiguredToken(auth, PROP_AUTH_TOKEN, ENV_AUTH_TOKEN, "--auth-token");
         registryToken = requireConfiguredToken(
                 registryToken, PROP_REGISTER_TOKEN, ENV_REGISTRY_REGISTER_TOKEN, "--register-token");
         return new GatewayConfig(
