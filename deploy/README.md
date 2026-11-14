@@ -1,8 +1,8 @@
-# Deploy helpers
+# Java Diag — Deploy helpers
 
 [English](README_EN.md)
 
-本目录是发版 / 本机部署用的脚本与模板，与 [GitHub Release](https://github.com/chenxk/java-diag/releases/latest) 解压结构一致。
+本目录是 **Java Diag** 发版 / 本机部署用的脚本与模板，与 [GitHub Release](https://github.com/chenxk/java-diag/releases/latest) 解压结构一致。
 
 - `java-diag-probe/` / `java-diag-gateway/` — `start.sh`（及 Windows `start.cmd` / `start.ps1`）+ properties 模板  
 - `Dockerfile.probe` / `Dockerfile.gateway` — 容器镜像  
@@ -23,7 +23,7 @@ cp java-diag-gateway/target/java-diag-gateway.jar deploy/java-diag-gateway/
 ## 启动与端口
 
 ```bash
-# 探针（默认 MCP :8765）
+# 探针（默认 MCP :8765；单机可只启此项）
 cd deploy/java-diag-probe
 chmod +x start.sh && ./start.sh start   # stop | restart | status | foreground
 
@@ -32,7 +32,7 @@ cd deploy/java-diag-gateway
 chmod +x start.sh && ./start.sh start
 ```
 
-- Agent 推荐 HTTP MCP：`http://<host>:8765/mcp`（直连探针）或 `http://<host>:8787/mcp`（只连 Gateway）
+- Agent 推荐 HTTP MCP：`http://<host>:8765/mcp`（直连探针）或 `http://<host>:8787/mcp`（只连 Gateway）；仍兼容 `/sse`
 - Admin：`http://<gateway-host>:8787/admin/`（`admin.user` / `admin.password`）
 
 ## 配置要点
@@ -41,9 +41,9 @@ chmod +x start.sh && ./start.sh start
 
 | 角色 | 键 | 说明 |
 |------|-----|------|
-| Probe / Gateway | `auth.token` | 各自 MCP Bearer（可不同） |
-| 两端 | `register.token` | **必须一致**；探针调 Gateway `/registry/*` |
+| Probe / Gateway | `auth.token` | 各自 MCP Bearer（可不同）；CLI 覆盖用 `--auth-token`（无 `--token` 别名） |
+| Probe / Gateway | `register.token` | 集群时两端**须一致**；探针仅在 `register.url` 非空时必填；Gateway 始终必填 |
 | Gateway | `admin.user` / `admin.password` | 浏览器 Admin |
 | Probe（挂 Gateway 时） | `register.url` / `advertise.url` | Gateway 根 URL（勿带 `/mcp`）；回调探针可达地址 |
 
-单机只跑探针时：填 `auth.token` + `register.token` 即可，不必填 `register.url`。全集见 [docs/CONFIGURATION.md](../docs/CONFIGURATION.md)；共享环境见 [SECURITY.md](../SECURITY.md)。
+单机只跑探针时：填 `auth.token` 即可，`register.url` / `register.token` 可留空。挂 Gateway 时两端 `register.token` 须一致。全集见 [docs/CONFIGURATION.md](../docs/CONFIGURATION.md)；共享环境见 [SECURITY.md](../SECURITY.md)。

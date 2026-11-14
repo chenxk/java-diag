@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# java-diag-gateway 启停脚本（jar / properties 与脚本同目录）
+# Java Diag Gateway（java-diag-gateway）启停脚本（jar / properties 与脚本同目录）
 #
 # 用法（须用 bash，勿用 sh start.sh；CentOS 上 sh 常为 dash，不支持 pipefail）:
 #   chmod +x start.sh && ./start.sh start
@@ -85,16 +85,16 @@ cmd_status() {
   local pid
   pid="$(read_pid)"
   if is_running "$pid"; then
-    echo "Gateway 正在运行 pid=$pid"
+    echo "Java Diag Gateway 正在运行 pid=$pid"
     echo "  配置: $CONFIG"
     echo "  日志: $LOG_FILE"
     return 0
   fi
   if [[ -n "$pid" ]]; then
-    echo "Gateway 未运行（PID 文件残留 pid=$pid，可执行 stop 清理）"
+    echo "Java Diag Gateway 未运行（PID 文件残留 pid=$pid，可执行 stop 清理）"
     return 3
   fi
-  echo "Gateway 未运行"
+  echo "Java Diag Gateway 未运行"
   return 3
 }
 
@@ -104,14 +104,14 @@ cmd_start() {
   local pid
   pid="$(read_pid)"
   if is_running "$pid"; then
-    err "Gateway 已在运行 (pid=$pid)。可先: $0 status | $0 stop"
+    err "Java Diag Gateway 已在运行 (pid=$pid)。可先: $0 status | $0 stop"
   fi
   if [[ -n "$pid" ]]; then
     rm -f "$PID_FILE"
   fi
 
   mkdir -p "$LOG_DIR"
-  echo "==== $(date -Iseconds 2>/dev/null || date) start gateway ====" >>"$LOG_FILE"
+  echo "==== $(date -Iseconds 2>/dev/null || date) start java-diag-gateway ====" >>"$LOG_FILE"
   nohup "$JAVA_BIN" -jar "$JAR" --config "$CONFIG" >>"$LOG_FILE" 2>&1 &
   local new_pid=$!
   echo "$new_pid" >"$PID_FILE"
@@ -120,7 +120,7 @@ cmd_start() {
     rm -f "$PID_FILE"
     err "启动失败，请查看日志: $LOG_FILE"
   fi
-  echo "Gateway 已启动 pid=$new_pid"
+  echo "Java Diag Gateway 已启动 pid=$new_pid"
   echo "  日志: $LOG_FILE"
 }
 
@@ -128,7 +128,7 @@ cmd_stop() {
   local pid
   pid="$(read_pid)"
   if [[ -z "$pid" ]]; then
-    echo "未找到 $PID_FILE，Gateway 可能未以后台方式启动。"
+    echo "未找到 $PID_FILE，Java Diag Gateway 可能未以后台方式启动。"
     return 0
   fi
 
@@ -138,7 +138,7 @@ cmd_stop() {
     return 0
   fi
 
-  echo "正在停止 Gateway (pid=$pid)..."
+  echo "正在停止 Java Diag Gateway (pid=$pid)..."
   kill "$pid" 2>/dev/null || true
 
   local _
@@ -171,9 +171,9 @@ cmd_foreground() {
   local pid
   pid="$(read_pid)"
   if is_running "$pid"; then
-    err "Gateway 已在后台运行 (pid=$pid)。请先: $0 stop"
+    err "Java Diag Gateway 已在后台运行 (pid=$pid)。请先: $0 stop"
   fi
-  echo "前台启动 Gateway（Ctrl+C 停止）..."
+  echo "前台启动 Java Diag Gateway（Ctrl+C 停止）..."
   exec "$JAVA_BIN" -jar "$JAR" --config "$CONFIG"
 }
 

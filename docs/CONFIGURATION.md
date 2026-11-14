@@ -23,7 +23,7 @@
 
 Properties 内可使用 **点分键**（推荐）或 legacy **`JAVA_DIAG_*` env 同名键**。
 
-**安全**：`auth.token` 与 `register.token` 均为**必填且不可为空**（探针与网关都强制）；空值启动失败。探针与网关的 `register.token` 须一致。
+**安全**：`auth.token` 始终**必填且不可为空**（探针与网关）。探针的 `register.token` **仅当 `register.url` 非空时必填**；网关的 `register.token` 始终必填。空值启动失败。挂集群时探针与网关的 `register.token` 须一致。
 
 ```bash
 java -jar java-diag-probe.jar --help
@@ -52,7 +52,7 @@ java -jar java-diag-gateway.jar --help
 | `dump.timeout.ms` | `JAVA_DIAG_DUMP_TIMEOUT_MS` | `30000` | heap/thread dump 等子进程超时 |
 | `service.name` | `JAVA_DIAG_SERVICE_NAME` | 主网卡 IP | 集群服务名 |
 | `register.url` | `JAVA_DIAG_REGISTER_URL` | 空 | Gateway 根 URL，设置后启用心跳 |
-| `register.token` | `JAVA_DIAG_REGISTRY_REGISTER_TOKEN` | **必填** | Gateway `/registry/*` Bearer；须与网关一致 |
+| `register.token` | `JAVA_DIAG_REGISTRY_REGISTER_TOKEN` | `register.url` 非空时**必填** | Gateway `/registry/*` Bearer；须与网关一致；单机可不填 |
 | `advertise.url` | `JAVA_DIAG_ADVERTISE_URL` | 空 | 对外 MCP base URL；决定 `instanceId` |
 | `heartbeat.interval.seconds` | `JAVA_DIAG_HEARTBEAT_INTERVAL_SECONDS` | `20` | 心跳间隔（有效 ≥5） |
 | `tags` | `JAVA_DIAG_TAGS` | 空 | `k=v,k2=v2` |
@@ -66,7 +66,7 @@ java -jar java-diag-gateway.jar --help
 | `--http` / `--stdio` | `transport` |
 | `--host` | `http.host` |
 | `--port` | `http.port` |
-| `--token` / `--auth-token` | `auth.token` |
+| `--auth-token` | `auth.token` |
 | `--service-name` | `service.name` |
 | `--register-url` | `register.url` |
 | `--register-token` | `register.token` |
@@ -84,15 +84,15 @@ java -jar java-diag-gateway.jar --help
 ```bash
 cp java-diag-probe/src/main/resources/java-diag-probe.properties.example \
    ./java-diag-probe.properties
-# 编辑 auth.token / register.token（必填）、allowed.log.dirs、register.url 等
+# 编辑 auth.token（必填）；挂 Gateway 时再填 register.url / register.token、allowed.log.dirs 等
 
 java -jar java-diag-probe.jar --config ./java-diag-probe.properties
 
 # 临时覆盖端口
 java -jar java-diag-probe.jar --config ./java-diag-probe.properties --port 8766
 
-# 本地 IDE（仍须提供两个 token：文件 / env / CLI）
-java -jar java-diag-probe.jar --stdio --token probe-secret --register-token reg-secret
+# 本地 IDE 单机（仅需 auth.token）
+java -jar java-diag-probe.jar --stdio --auth-token probe-secret
 ```
 
 ---
@@ -122,7 +122,7 @@ Gateway **仅 HTTP**。
 |-----|------|
 | `--config <file>` | 配置文件 |
 | `--host` / `--port` | HTTP 监听 |
-| `--token` / `--auth-token` | Agent token |
+| `--auth-token` | Agent token |
 | `--register-token` | Registry token |
 | `--admin-user` / `--admin-password` | 控制台（建议 properties） |
 | `--heartbeat-ttl-seconds` | TTL |
@@ -132,7 +132,7 @@ Gateway **仅 HTTP**。
 
 ```bash
 java -jar java-diag-gateway.jar --config ./java-diag-gateway.properties
-java -jar java-diag-gateway.jar --config ./gw.properties --token agent-override
+java -jar java-diag-gateway.jar --config ./gw.properties --auth-token agent-override
 ```
 
 端点、`diag.list_instances` / `diag.resolve_service` 等行为未变，见历史版本文档或源码。

@@ -1,4 +1,4 @@
-﻿# java-diag-gateway Windows 启停脚本（jar / properties 与脚本同目录）
+﻿# Java Diag Gateway（java-diag-gateway）Windows 启停脚本（jar / properties 与脚本同目录）
 #
 # 用法（推荐 start.cmd）:
 #   start.cmd start
@@ -18,7 +18,7 @@ $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $ScriptDir
 
-$AppName = "Gateway"
+$AppName = "Java Diag Gateway"
 $Jar = Join-Path $ScriptDir "java-diag-gateway.jar"
 $Config = Join-Path $ScriptDir "java-diag-gateway.properties"
 $PidFile = Join-Path $ScriptDir "gateway.pid"
@@ -133,7 +133,7 @@ function Invoke-Start {
 
     if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir | Out-Null }
     $stamp = Get-Date -Format "yyyy-MM-ddTHH:mm:ss"
-    Add-Content -Path $LogFile -Value "==== $stamp start gateway ===="
+    Add-Content -Path $LogFile -Value "==== $stamp start java-diag-gateway ===="
 
     # PowerShell 不允许 stdout/stderr 重定向到同一文件，stderr 写入 .err
     $errFile = Join-Path $LogDir "gateway.err"

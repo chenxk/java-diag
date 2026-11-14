@@ -1,8 +1,8 @@
-# java-diag
+# Java Diag
 
 [中文](README.md)
 
-Read-oriented, auditable MCP for diagnosing Java processes in production.
+**Java Diag** is a read-oriented, auditable MCP for diagnosing Java processes in production. Product name: Java Diag; open-source repo/module names remain `java-diag`.
 
 - **Probe** `java-diag-probe`: runs on the app host; HTTP MCP (also `--stdio`)
 - **Gateway** `java-diag-gateway`: cluster entry + built-in heartbeat registry; Agents can talk only to the Gateway, or still connect to probes directly
@@ -31,9 +31,8 @@ Edit `java-diag-probe/java-diag-probe.properties`:
 | Key | Example | Notes |
 |-----|---------|-------|
 | `auth.token` | `jd_pr_T2wE5rY8uI0oP3aS` | Agent → probe MCP Bearer (**required**) |
-| `register.token` | `jd_reg_H3cF6yL1bN5dZ0uE` | Required at startup; for standalone, any strong random value is fine until you join a Gateway |
 
-No need to set `register.url` / `advertise.url` for standalone.
+No need to set `register.url` / `advertise.url` / `register.token` for standalone (`register.token` is required only when joining a Gateway).
 
 #### 2. Start the probe
 
@@ -235,7 +234,7 @@ Load order: **built-in defaults → properties file → environment variables �
 ```bash
 cp java-diag-probe/src/main/resources/java-diag-probe.properties.example \
    ./java-diag-probe.properties
-# Edit auth.token / register.token (required; do not leave placeholders), allowed.log.dirs, etc.
+# Edit auth.token (required; do not leave placeholders), allowed.log.dirs, etc.; register.token optional for standalone
 java -jar java-diag-probe/target/java-diag-probe.jar \
   --config ./java-diag-probe.properties
 ```
@@ -262,7 +261,7 @@ java -jar java-diag-gateway/target/java-diag-gateway.jar \
   --config ./java-diag-gateway.properties
 ```
 
-Both `auth.token` and `register.token` are **required** (blank → startup fails); probe and gateway `register.token` values must match.
+Gateway `auth.token` and `register.token` are **required** (blank → startup fails); after setting probe `register.url`, probe `register.token` is required and must match the gateway.
 
 **Admin console** (browse registered probes): `http://<gateway-host>:8787/admin/`  
 Credentials come from `admin.user` / `admin.password` (examples use `CHANGE_ME_*` placeholders — **change them before deploy**).
@@ -309,7 +308,7 @@ On the probe, use `JAVA_DIAG_APP_NAME_MAP` / `--app-map` to map jar/mainClass to
 | Gateway | Separate jar (MIT, same as probe) |
 | Direct probe | Allowed |
 | Multi-replica | Return candidates; Agent chooses |
-| Auth | `auth.token` (Agent/MCP) and `register.token` (`/registry/*`) are both required and non-empty |
+| Auth | `auth.token` (Agent/MCP) required; probe `register.token` required only when `register.url` is set; Gateway `register.token` always required; both sides must match |
 
 Architecture: [docs/TECH_ARCHITECTURE.md](docs/TECH_ARCHITECTURE.md) · Full config: [docs/CONFIGURATION.md](docs/CONFIGURATION.md) · K8s draft: [deploy/k8s/README.md](deploy/k8s/README.md)
 

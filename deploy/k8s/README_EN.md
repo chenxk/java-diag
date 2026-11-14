@@ -3,7 +3,7 @@
 [中文](README.md)
 
 Minimal runnable manifests for **Gateway + app Sidecar probe**.  
-java-diag does **not** need K8s-specific diagnostic logic; the key is placing the probe where it can see the app JVM and read logs.
+**Java Diag** does **not** need K8s-specific diagnostic logic; the key is placing the probe where it can see the app JVM and read logs.
 
 > Image names, app start commands, and log paths are placeholders — replace them before production.
 
@@ -20,7 +20,7 @@ java-diag does **not** need K8s-specific diagnostic logic; the key is placing th
 
 ```
 Agent / IDE
-    │  HTTP MCP /mcp + Bearer
+    │  HTTP MCP /mcp + Bearer (/sse still supported)
     ▼
 java-diag-gateway  (:8787)
     │  Pick probe from heartbeat registry (multi-replica returns candidates)
@@ -79,7 +79,7 @@ If the entrypoint does not expand `$(POD_IP)`, set `advertise.url` yourself in t
 
 ## Connecting an Agent
 
-Connect only to the Gateway (do not point at every sidecar unless troubleshooting):
+Connect only to the Gateway (do not point at every sidecar unless troubleshooting). Prefer `/mcp` (`/sse` still supported):
 
 ```json
 {

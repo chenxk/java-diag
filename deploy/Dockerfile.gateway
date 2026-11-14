@@ -1,5 +1,6 @@
-# Gateway image — build jars first: mvn -q -pl java-diag-gateway -am package
+# Java Diag Gateway image — build jars first: mvn -q -pl java-diag-gateway -am package
 # docker build -f deploy/Dockerfile.gateway -t java-diag-gateway:local .
+# Agent: http://<host>:8787/mcp （仍兼容 /sse）；Admin: /admin/；集群先启 Gateway 再启 Probe
 FROM eclipse-temurin:17-jre-jammy
 
 WORKDIR /opt/java-diag

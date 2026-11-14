@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve java-diag.
+Thanks for helping improve **Java Diag** (open-source repo/module: `java-diag`).
 
 ## Prerequisites
 

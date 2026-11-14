@@ -1,5 +1,6 @@
-# Probe image — build jars first: mvn -q -pl java-diag-probe -am package
+# Java Diag Probe image — build jars first: mvn -q -pl java-diag-probe -am package
 # docker build -f deploy/Dockerfile.probe -t java-diag-probe:local .
+# Agent: http://<host>:8765/mcp （仍兼容 /sse）；单机可不设 register.url / register.token
 FROM eclipse-temurin:17-jdk-jammy
 
 WORKDIR /opt/java-diag

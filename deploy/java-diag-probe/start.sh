@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# java-diag-probe（探针）启停脚本（jar / properties 与脚本同目录）
+# Java Diag 探针（java-diag-probe）启停脚本（jar / properties 与脚本同目录）
 #
 # 用法（须用 bash，勿用 sh start.sh；CentOS 上 sh 常为 dash，不支持 pipefail）:
 #   chmod +x start.sh && ./start.sh start
@@ -12,7 +12,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-APP_NAME="MCP Server"
+APP_NAME="Java Diag Probe"
 JAR="$SCRIPT_DIR/java-diag-probe.jar"
 CONFIG="$SCRIPT_DIR/java-diag-probe.properties"
 PID_FILE="$SCRIPT_DIR/mcp-server.pid"
@@ -112,7 +112,7 @@ cmd_start() {
   fi
 
   mkdir -p "$LOG_DIR"
-  echo "==== $(date -Iseconds 2>/dev/null || date) start mcp-server ====" >>"$LOG_FILE"
+  echo "==== $(date -Iseconds 2>/dev/null || date) start java-diag-probe ====" >>"$LOG_FILE"
   nohup "$JAVA_BIN" -jar "$JAR" --config "$CONFIG" >>"$LOG_FILE" 2>&1 &
   local new_pid=$!
   echo "$new_pid" >"$PID_FILE"

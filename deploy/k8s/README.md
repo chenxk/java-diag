@@ -3,7 +3,7 @@
 [English](README_EN.md)
 
 本目录给出 **Gateway + 业务 Sidecar 探针** 的最小可跑清单。  
-java-diag **不用为 K8s 改诊断逻辑**；关键是把探针部署到「能看见业务 JVM、能读到日志」的位置。
+**Java Diag** 不用为 K8s 改诊断逻辑；关键是把探针部署到「能看见业务 JVM、能读到日志」的位置。
 
 > 镜像地址、业务启动命令、日志路径均为占位，上线前请替换。
 
@@ -20,7 +20,7 @@ java-diag **不用为 K8s 改诊断逻辑**；关键是把探针部署到「能�
 
 ```
 Agent / IDE
-    │  HTTP MCP /mcp + Bearer
+    │  HTTP MCP /mcp + Bearer（仍兼容 /sse）
     ▼
 java-diag-gateway  (:8787)
     │  按心跳注册表选探针（多副本返回 candidates）
@@ -79,7 +79,7 @@ kubectl -n java-diag logs deploy/demo-order-service -c java-diag --tail=50
 
 ## Agent 怎么连
 
-只连 Gateway（不要直连每个 sidecar，除非排障）：
+只连 Gateway（不要直连每个 sidecar，除非排障）。推荐 `/mcp`（仍兼容 `/sse`）：
 
 ```json
 {

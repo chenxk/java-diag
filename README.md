@@ -1,8 +1,8 @@
-# java-diag
+# Java Diag
 
 [English](README_EN.md)
 
-只读、可审计的 Java 线上排查 MCP。
+**Java Diag** 是只读、可审计的 Java 线上排查 MCP。产品名 Java Diag，开源仓库/模块名仍为 `java-diag`。
 
 - **探针** `java-diag-probe`：部署在业务机，HTTP MCP（也可 `--stdio`）
 - **网关** `java-diag-gateway`：集群入口 + 内置心跳注册；Agent 可只连 Gateway，也仍可直连探针
@@ -31,9 +31,8 @@
 | 键 | 示例值 | 说明 |
 |----|--------|------|
 | `auth.token` | `jd_pr_T2wE5rY8uI0oP3aS` | Agent → 探针 MCP Bearer（**必改**） |
-| `register.token` | `jd_reg_H3cF6yL1bN5dZ0uE` | 启动必填；单机可不挂 Gateway，先填任意强随机值即可 |
 
-单机不必填 `register.url` / `advertise.url`。
+单机不必填 `register.url` / `advertise.url` / `register.token`（仅挂 Gateway 时 `register.token` 才必填）。
 
 #### 2. 启动探针
 
@@ -235,7 +234,7 @@ java -jar java-diag-gateway.jar --help
 ```bash
 cp java-diag-probe/src/main/resources/java-diag-probe.properties.example \
    ./java-diag-probe.properties
-# 编辑 auth.token / register.token（必填，勿用占位值）、allowed.log.dirs 等
+# 编辑 auth.token（必填，勿用占位值）、allowed.log.dirs 等；单机可不设 register.token
 java -jar java-diag-probe/target/java-diag-probe.jar \
   --config ./java-diag-probe.properties
 ```
@@ -262,7 +261,7 @@ java -jar java-diag-gateway/target/java-diag-gateway.jar \
   --config ./java-diag-gateway.properties
 ```
 
-`auth.token` 与 `register.token` 均为必填（空则启动失败）；探针与网关的 `register.token` 须一致。
+Gateway 的 `auth.token` 与 `register.token` 均为必填（空则启动失败）；探针在设置 `register.url` 后须填 `register.token`，且与网关一致。
 
 **管理控制台**（浏览器查看已注册探针）：`http://<gateway-host>:8787/admin/`  
 账号由 `admin.user` / `admin.password` 配置（示例里为占位 `CHANGE_ME_*`，部署前必须改掉）。
@@ -309,7 +308,7 @@ java -jar java-diag-probe/target/java-diag-probe.jar \
 | Gateway | 独立 jar（与探针同为 MIT） |
 | 直连探针 | 允许 |
 | 多副本 | 返回 candidates，Agent 选 |
-| 鉴权 | `auth.token`（Agent/MCP）与 `register.token`（`/registry/*`）均必填且不可为空 |
+| 鉴权 | `auth.token`（Agent/MCP）必填；探针 `register.token` 仅在 `register.url` 非空时必填；Gateway `register.token` 始终必填；两端须一致 |
 
 架构细节：[docs/TECH_ARCHITECTURE.md](docs/TECH_ARCHITECTURE.md) · 配置全集：[docs/CONFIGURATION.md](docs/CONFIGURATION.md) · K8s 草稿：[deploy/k8s/README.md](deploy/k8s/README.md)
 
