@@ -2,7 +2,7 @@
 
 [中文](README.md)
 
-**Java Diag** is a read-oriented, auditable MCP for diagnosing Java processes in production. Product name: Java Diag; open-source repo/module names remain `java-diag`.
+**Java Diag** is a read-oriented, auditable MCP for diagnosing Java processes in production. 
 
 - **Probe** `java-diag-probe`: runs on the app host; HTTP MCP (also `--stdio`)
 - **Gateway** `java-diag-gateway`: cluster entry + built-in heartbeat registry; Agents can talk only to the Gateway, or still connect to probes directly

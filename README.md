@@ -2,7 +2,7 @@
 
 [English](README_EN.md)
 
-**Java Diag** 是只读、可审计的 Java 线上排查 MCP。产品名 Java Diag，开源仓库/模块名仍为 `java-diag`。
+**Java Diag** 是只读、可审计的 Java 线上排查 MCP。
 
 - **探针** `java-diag-probe`：部署在业务机，HTTP MCP（也可 `--stdio`）
 - **网关** `java-diag-gateway`：集群入口 + 内置心跳注册；Agent 可只连 Gateway，也仍可直连探针
